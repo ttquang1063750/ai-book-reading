@@ -1,0 +1,87 @@
+.page-toolbar {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.page-toolbar .btn {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.4em 1em;
+  border: 1px solid #c9c2b6;
+  border-radius: 8px;
+  background: #fffdf9;
+  color: #2b2b2b;
+  text-decoration: none;
+}
+
+h1 {
+  font-size: 1.4rem;
+  margin-bottom: 1.5rem;
+}
+
+.hint {
+  color: #777;
+  padding: 1rem 0;
+}
+
+.error-banner {
+  background: #fff5f5;
+  color: #9b2c2c;
+  border-left: 3px solid #9b2c2c;
+  padding: 0.6em 1em;
+  border-radius: 4px;
+  margin-bottom: 1rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.5em 1.3em;
+  border: 1px solid #c9c2b6;
+  border-radius: 8px;
+  background: #fffdf9;
+  color: #2b2b2b;
+  cursor: pointer;
+}
+
+.btn.primary {
+  background: #2b2b2b;
+  color: #fffdf9;
+  border-color: #2b2b2b;
+}
+
+.chapter-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chapter-card {
+  background: #fffdf9;
+  border: 1px solid #e5dfd4;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+}
+
+.chapter-card h2 {
+  font-size: 1.1rem;
+  margin: 0 0 0.5rem;
+}
+
+.chapter-card p {
+  margin: 0;
+  color: #444;
+  line-height: 1.6;
+}
+
+.btn.regenerate {
+  margin-top: 1.5rem;
+  font-size: 0.85rem;
+  color: #777;
+}

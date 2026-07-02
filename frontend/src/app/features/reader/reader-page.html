@@ -1,5 +1,9 @@
 <div class="reader-toolbar">
-  <a routerLink="/library" class="btn back">← Thư viện</a>
+  <div class="toolbar-left">
+    <a routerLink="/library" class="btn back">← Thư viện</a>
+    <a [routerLink]="['/books', id(), 'summary']" class="btn">Tóm tắt</a>
+    <a [routerLink]="['/books', id(), 'glossary']" class="btn">Giải nghĩa</a>
+  </div>
   <nav class="view-toggle">
     @for (m of modes; track m.value) {
       <button class="btn" [class.active]="mode() === m.value" (click)="mode.set(m.value)">

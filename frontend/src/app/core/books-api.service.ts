@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 
-import { Book, Job, SourceLang } from './models/book.model';
+import { Book, ChapterSummary, Glossary, Job, SourceLang } from './models/book.model';
 
 @Injectable({ providedIn: 'root' })
 export class BooksApiService {
@@ -58,5 +58,22 @@ export class BooksApiService {
   /** Observable variant used by the reader page's reactive fetch. */
   bookHtml$(bookId: string): Observable<string> {
     return this.http.get(`${this.base}/books/${bookId}/html`, { responseType: 'text' });
+  }
+
+  getGlossary(bookId: string): Promise<Glossary> {
+    return firstValueFrom(this.http.get<Glossary>(`${this.base}/books/${bookId}/glossary`));
+  }
+
+  getSummaries(bookId: string): Promise<ChapterSummary[]> {
+    return firstValueFrom(
+      this.http.get<ChapterSummary[]>(`${this.base}/books/${bookId}/summaries`)
+    );
+  }
+
+  startSummarize(bookId: string, force = false): Promise<Job> {
+    const suffix = force ? '?force=true' : '';
+    return firstValueFrom(
+      this.http.post<Job>(`${this.base}/books/${bookId}/summarize${suffix}`, null)
+    );
   }
 }

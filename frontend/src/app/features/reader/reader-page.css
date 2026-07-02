@@ -11,6 +11,11 @@
   z-index: 10;
 }
 
+.reader-toolbar .toolbar-left {
+  display: flex;
+  gap: 0.5rem;
+}
+
 .reader-toolbar .view-toggle {
   display: flex;
   gap: 0.5rem;

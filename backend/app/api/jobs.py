@@ -21,7 +21,8 @@ def _create_and_start_job(book_id: str, source_lang: str) -> JobOut:
     now = datetime.now(timezone.utc).isoformat()
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO jobs (id, book_id, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+            "INSERT INTO jobs (id, book_id, job_type, status, created_at, updated_at)"
+            " VALUES (?, ?, 'translate', ?, ?, ?)",
             (job_id, book_id, "queued", now, now),
         )
     start_job(job_id, book_id, source_lang)

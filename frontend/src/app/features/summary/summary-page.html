@@ -1,0 +1,31 @@
+<div class="page-toolbar">
+  <a routerLink="/library" class="btn">← Thư viện</a>
+  <a [routerLink]="['/books', id(), 'read']" class="btn">Đọc sách</a>
+</div>
+
+<h1>Tóm tắt theo chương</h1>
+
+@if (error(); as message) {
+  <p class="error-banner">{{ message }}</p>
+}
+
+@if (loadingSummaries()) {
+  <p class="hint">Đang tải…</p>
+} @else if (isRunning()) {
+  <p class="hint">Đang tạo tóm tắt — {{ progressText() }}…</p>
+} @else if (summaries().length === 0) {
+  <div class="empty-state">
+    <p class="hint">Chưa có tóm tắt nào cho sách này.</p>
+    <button class="btn primary" (click)="start()">Tạo tóm tắt</button>
+  </div>
+} @else {
+  <div class="chapter-list">
+    @for (chapter of summaries(); track chapter.heading_block_id) {
+      <article class="chapter-card">
+        <h2>{{ chapter.title }}</h2>
+        <p>{{ chapter.summary }}</p>
+      </article>
+    }
+  </div>
+  <button class="btn regenerate" (click)="start(true)">Tạo lại tóm tắt</button>
+}

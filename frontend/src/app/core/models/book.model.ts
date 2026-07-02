@@ -12,9 +12,12 @@ export interface Book {
   status: BookStatus;
 }
 
+export type JobType = 'translate' | 'summarize';
+
 export interface Job {
   id: string;
   book_id: string;
+  job_type: JobType;
   status: JobStatus;
   current_stage: string | null;
   total_chunks: number | null;
@@ -23,4 +26,14 @@ export interface Job {
   error_message: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface Glossary {
+  terms: Record<string, string>;
+}
+
+export interface ChapterSummary {
+  heading_block_id: number;
+  title: string;
+  summary: string | null;
 }

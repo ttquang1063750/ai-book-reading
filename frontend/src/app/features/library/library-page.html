@@ -41,6 +41,8 @@
           @switch (book.status) {
             @case ('done') {
               <a [routerLink]="['/books', book.id, 'read']" class="btn primary">Đọc</a>
+              <a [routerLink]="['/books', book.id, 'summary']" class="btn">Tóm tắt</a>
+              <a [routerLink]="['/books', book.id, 'glossary']" class="btn">Giải nghĩa</a>
               <a [href]="downloadUrl(book.id)" class="btn" download>Tải về</a>
               <button class="btn" (click)="translate(book.id)">Dịch lại</button>
             }

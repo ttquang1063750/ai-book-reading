@@ -15,6 +15,8 @@ The first working version is complete and verified end-to-end; the sections belo
 - **Persistence**: SQLite (stdlib `sqlite3`, no ORM) for book/job status rows; per-book JSON files (`structure.json`, `glossary.json`) for content. No Postgres, no SQLAlchemy.
 - **Job execution**: in-process `asyncio.create_task`, sequential (not concurrent) chunk processing — no Celery/Redis. Translation runs as **two whole-book passes** (`rough_translating` then `polishing`), not interleaved per chunk — each pass loads only its own model for the whole book, so low-RAM machines that can't keep both models warm don't pay a reload cost every chunk. Glossary is fully built by the end of the rough pass, before polishing starts (block model has separate `rough_text` and `translated_text` fields — see `book_structure.py`).
 - **Output**: backend renders HTML from `structure.json` via Jinja2; served as a fragment to Angular (`[innerHTML]` after `DomSanitizer`) and also saved as a standalone `output.html` file per book.
+- **Glossary page** (`/books/:id/glossary`): reads `glossary.json` (already built during the rough pass) and renders it as a term table — no separate pipeline.
+- **Chapter summaries** (`/books/:id/summary`): a second job type (`jobs.job_type = 'summarize'`, reuses the same `jobs` table/polling infra as translation). `pipeline/summarize.py` splits blocks into chapters by level-1 heading, summarizes each chapter's *translated* text via the polish model, map-reducing chapters that exceed `SUMMARY_GROUP_TOKEN_BUDGET`. Stored in `data/books/{id}/summaries.json` keyed by heading block id.
 
 ## Explicit non-goals (don't add these)
 - No `torch`/`transformers`/`ctranslate2`/NLLB — translation only goes through Ollama's REST API.

@@ -15,5 +15,14 @@ export const routes: Routes = [
     path: 'books/:id/read',
     loadComponent: () => import('./features/reader/reader-page').then((m) => m.ReaderPage),
   },
+  {
+    path: 'books/:id/glossary',
+    loadComponent: () =>
+      import('./features/glossary/glossary-page').then((m) => m.GlossaryPage),
+  },
+  {
+    path: 'books/:id/summary',
+    loadComponent: () => import('./features/summary/summary-page').then((m) => m.SummaryPage),
+  },
   { path: '**', redirectTo: 'library' },
 ];

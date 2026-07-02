@@ -8,9 +8,10 @@
 Angular 21 SPA (localhost:4200) → FastAPI (localhost:8000) → Ollama (localhost:11434)
 ```
 
-- **Dịch hybrid 2 bước**: `translategemma` dịch thô nhanh → `qwen2.5:14b` biên tập lại thành văn xuôi tiếng Việt tự nhiên.
-- **Glossary tự động**: tên riêng được trích và giữ nhất quán xuyên suốt cuốn sách.
-- **Đọc song ngữ**: xem bản gốc + bản dịch cạnh nhau, hoặc từng bản riêng.
+- **Dịch hybrid 2 giai đoạn**: `translategemma` dịch thô toàn bộ sách trước → `qwen2.5:14b` biên tập lại thành văn xuôi tiếng Việt tự nhiên sau. Chạy theo giai đoạn (không đổi model mỗi đoạn) để máy chỉ cần giữ 1 model trong RAM tại một thời điểm.
+- **Glossary tự động**: tên riêng được trích và giữ nhất quán xuyên suốt cuốn sách — xem tại trang **Giải nghĩa** của mỗi sách.
+- **Tóm tắt theo chương**: tạo tóm tắt tiếng Việt cho từng chương (dựa trên bản dịch), xem tại trang **Tóm tắt** — tạo theo yêu cầu sau khi dịch xong, không tự động chạy kèm job dịch.
+- **Đọc song ngữ**: xem bản gốc + bản dịch cạnh nhau, hoặc từng bản riêng. Giữ được in đậm/nghiêng, code block (không bị dịch, tránh hỏng cú pháp), thơ/địa chỉ (giữ xuống dòng), và hình ảnh gốc trong PDF.
 - Mỗi sách còn có file `output.html` độc lập tại `backend/data/books/{id}/` — mở trực tiếp bằng browser không cần chạy app.
 
 ## Yêu cầu
@@ -48,7 +49,7 @@ uvicorn app.main:app --port 8000
 cd frontend && npm start
 ```
 
-Mở http://localhost:4200 → upload PDF → bấm **Dịch** → theo dõi tiến độ → **Đọc**.
+Mở http://localhost:4200 → upload PDF → bấm **Dịch** → theo dõi tiến độ → **Đọc**. Sách đã dịch xong có thêm nút **Tóm tắt** (tạo tóm tắt từng chương) và **Giải nghĩa** (bảng tên riêng/thuật ngữ).
 
 API docs (Swagger): http://localhost:8000/docs
 

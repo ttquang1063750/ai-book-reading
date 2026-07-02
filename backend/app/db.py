@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS books (
 CREATE TABLE IF NOT EXISTS jobs (
     id TEXT PRIMARY KEY,
     book_id TEXT NOT NULL REFERENCES books(id),
+    job_type TEXT NOT NULL DEFAULT 'translate',
     status TEXT NOT NULL,
     current_stage TEXT,
     total_chunks INTEGER,
@@ -33,6 +34,10 @@ def init_db() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     with get_connection() as conn:
         conn.executescript(SCHEMA)
+        # Migration for DBs created before job_type existed.
+        columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+        if "job_type" not in columns:
+            conn.execute("ALTER TABLE jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'translate'")
         # Jobs can't survive a process restart — mark any leftovers as interrupted.
         conn.execute(
             "UPDATE jobs SET status = 'error', error_message = 'Interrupted by server restart'"

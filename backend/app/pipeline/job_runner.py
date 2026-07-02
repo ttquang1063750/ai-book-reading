@@ -10,6 +10,7 @@ from app.db import get_connection, update_book, update_job
 from app.ingestion.structure import extract_book
 from app.models.book_structure import BookStructure
 from app.pipeline.chunking import Chunk, build_chunks
+from app.pipeline.summarize import split_into_chapters, summarize_chapter
 from app.pipeline.translate import polish_chunk, rough_translate_chunk, tail_sentences
 
 logger = logging.getLogger(__name__)
@@ -159,8 +160,73 @@ async def run_translation_job(job_id: str, book_id: str, source_lang: str) -> No
         RUNNING_JOBS.pop(job_id, None)
 
 
+def _load_summaries(path: Path) -> dict[str, dict]:
+    if path.exists():
+        return json.loads(path.read_text(encoding="utf-8"))
+    return {}
+
+
+def _save_summaries(path: Path, summaries: dict[str, dict]) -> None:
+    path.write_text(json.dumps(summaries, ensure_ascii=False, indent=1), encoding="utf-8")
+
+
+async def run_summarize_job(job_id: str, book_id: str) -> None:
+    book_dir = BOOKS_DIR / book_id
+    structure_path = book_dir / "structure.json"
+    summaries_path = book_dir / "summaries.json"
+
+    try:
+        update_job(job_id, status="running", current_stage="summarizing")
+
+        if not structure_path.exists():
+            raise RuntimeError("Book has not been translated yet")
+        structure = BookStructure.load(structure_path)
+        with get_connection() as conn:
+            row = conn.execute("SELECT title FROM books WHERE id = ?", (book_id,)).fetchone()
+        title = row["title"] if row else book_id
+
+        chapters = split_into_chapters(structure.blocks, title)
+        summaries = _load_summaries(summaries_path)
+        completed = sum(1 for c in chapters if str(c.heading_block_id) in summaries)
+        failed = 0
+        update_job(job_id, total_chunks=len(chapters), completed_chunks=completed)
+
+        for chapter in chapters:
+            key = str(chapter.heading_block_id)
+            if key in summaries:
+                continue
+            try:
+                summary = await summarize_chapter(chapter)
+                summaries[key] = {"title": chapter.title, "summary": summary}
+                completed += 1
+            except Exception as exc:
+                logger.exception("Summary for chapter '%s' failed: %s", chapter.title, exc)
+                failed += 1
+            _save_summaries(summaries_path, summaries)
+            update_job(job_id, completed_chunks=completed, failed_chunks=failed)
+
+        if failed:
+            update_job(job_id, status="done", current_stage="done",
+                       error_message=f"{failed} chapter(s) failed to summarize")
+        else:
+            update_job(job_id, status="done", current_stage="done")
+    except asyncio.CancelledError:
+        update_job(job_id, status="cancelled")
+        raise
+    except Exception as exc:
+        logger.exception("Summarize job %s failed: %s", job_id, exc)
+        update_job(job_id, status="error", error_message=str(exc)[:500])
+    finally:
+        RUNNING_JOBS.pop(job_id, None)
+
+
 def start_job(job_id: str, book_id: str, source_lang: str) -> None:
     task = asyncio.create_task(run_translation_job(job_id, book_id, source_lang))
+    RUNNING_JOBS[job_id] = task
+
+
+def start_summarize_job(job_id: str, book_id: str) -> None:
+    task = asyncio.create_task(run_summarize_job(job_id, book_id))
     RUNNING_JOBS[job_id] = task
 
 

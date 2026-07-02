@@ -13,9 +13,20 @@ class BookOut(BaseModel):
     status: Literal["uploaded", "extracted", "translating", "done", "error"]
 
 
+class GlossaryOut(BaseModel):
+    terms: dict[str, str]
+
+
+class ChapterSummaryOut(BaseModel):
+    heading_block_id: int
+    title: str
+    summary: str | None = None
+
+
 class JobOut(BaseModel):
     id: str
     book_id: str
+    job_type: Literal["translate", "summarize"] = "translate"
     status: Literal["queued", "running", "done", "error", "cancelled"]
     current_stage: str | None = None
     total_chunks: int | None = None
