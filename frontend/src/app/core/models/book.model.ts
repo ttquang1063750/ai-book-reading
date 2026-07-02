@@ -1,18 +1,22 @@
 export type BookStatus = 'uploaded' | 'extracted' | 'translating' | 'done' | 'error';
 export type JobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled';
-export type SourceLang = 'en' | 'fr';
+
+/** Free text (e.g. "Tiếng Anh", "Japanese", "Tiếng Đức") — any language the model supports,
+ * not a fixed enum. */
+export type Lang = string;
 
 export interface Book {
   id: string;
   title: string;
   original_filename: string;
-  source_lang: SourceLang;
+  source_lang: Lang;
+  target_lang: Lang;
   page_count: number | null;
   created_at: string;
   status: BookStatus;
 }
 
-export type JobType = 'translate' | 'summarize';
+export type JobType = 'translate' | 'summarize' | 'index';
 
 export interface Job {
   id: string;
@@ -28,12 +32,24 @@ export interface Job {
   updated_at: string;
 }
 
-export interface Glossary {
-  terms: Record<string, string>;
-}
-
 export interface ChapterSummary {
   heading_block_id: number;
   title: string;
   summary: string | null;
+}
+
+export interface Chapter {
+  heading_block_id: number;
+  title: string;
+}
+
+export interface IndexStatus {
+  indexed: boolean;
+  chunk_count: number;
+}
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string;
 }

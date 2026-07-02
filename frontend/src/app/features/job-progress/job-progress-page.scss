@@ -1,0 +1,92 @@
+.job-progress {
+  max-width: 34rem;
+  margin: 2rem auto;
+  text-align: center;
+}
+
+.job-progress h1 {
+  font-size: 1.4rem;
+}
+
+.stage {
+  color: var(--color-text-muted);
+  margin-bottom: 1.5rem;
+}
+
+.progress-track {
+  height: 10px;
+  background: var(--color-track);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+  margin-top: 0.5rem;
+}
+
+.failed {
+  color: var(--color-danger);
+}
+
+.eta-text {
+  font-size: 0.85rem;
+  color: var(--color-warning);
+  margin-top: 0.25rem;
+}
+
+.error-banner {
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-left: 3px solid var(--color-danger);
+  padding: 0.6em 1em;
+  border-radius: 4px;
+  text-align: left;
+}
+
+.hint {
+  color: var(--color-text-muted);
+  padding: 2rem 0;
+}
+
+.actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 2rem;
+}
+
+.btn {
+  font: inherit;
+  font-size: 0.95rem;
+  padding: 0.5em 1.4em;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn.primary {
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-color: var(--color-accent);
+}
+
+.btn.danger {
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
+}
+
+.btn.danger:hover {
+  background: var(--color-danger-bg);
+}

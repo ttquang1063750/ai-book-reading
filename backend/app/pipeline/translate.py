@@ -10,9 +10,20 @@ from app.pipeline.chunking import Chunk
 
 logger = logging.getLogger(__name__)
 
-LANG_NAMES = {"en": "English", "fr": "French"}
-
 PARAGRAPH_SPLIT = re.compile(r"\n\s*\n")
+
+# Both models occasionally wrap output in Markdown formatting (most often **bold**
+# around headings) even when told not to — the reader renders translated text as
+# plain HTML, not Markdown, so leftover ** would show up literally on the page.
+# Stripped defensively rather than relying solely on the prompt instruction.
+MARKDOWN_BOLD = re.compile(r"\*\*(.+?)\*\*")
+MARKDOWN_HEADING = re.compile(r"^#{1,6}\s+", re.MULTILINE)
+
+
+def strip_markdown_artifacts(text: str) -> str:
+    text = MARKDOWN_BOLD.sub(r"\1", text)
+    text = MARKDOWN_HEADING.sub("", text)
+    return text
 
 
 def split_paragraphs(text: str, expected: int) -> list[str] | None:
@@ -20,27 +31,87 @@ def split_paragraphs(text: str, expected: int) -> list[str] | None:
     return parts if len(parts) == expected else None
 
 
-async def rough_translate(chunk: Chunk, source_lang: str, prev_tail: str) -> str:
-    lang = LANG_NAMES.get(source_lang, source_lang)
+# qwen2.5 (the polish model) has a reproducible failure mode on literary/narrative
+# prose — independent of source/target language — where it "thinks out loud" in
+# Chinese before giving the actual answer (e.g. "请注意，这里的...应改为纯越南文：" mid-output).
+# Confirmed via live testing: 0/3 on technical content, 3/3 on narrative sentences,
+# across multiple unrelated source/target language pairs — a model quirk, not
+# something a better prompt reliably prevents. Detected and retried defensively
+# instead, same fallback-chain idiom as _split_or_fallback below.
+CJK_CHAR = re.compile(r"[一-鿿㐀-䶿]")
+_CJK_TARGET_KEYWORDS = ("trung", "nhật", "hàn", "chinese", "japanese", "korean", "中文", "日本語", "한국어")
+POLISH_MAX_ATTEMPTS = 3
+
+
+def _target_expects_cjk(target_lang: str) -> bool:
+    lower = target_lang.lower()
+    return any(keyword in lower for keyword in _CJK_TARGET_KEYWORDS)
+
+
+def _has_unexpected_cjk_leak(text: str, target_lang: str) -> bool:
+    return not _target_expects_cjk(target_lang) and bool(CJK_CHAR.search(text))
+
+
+DEFAULT_SOURCE_LANG_LABEL = "Không xác định"
+
+
+async def detect_source_language(sample_text: str) -> str:
+    """Identify the source language from a short text sample, using the rough
+    model (already loaded for the rough pass right after this runs — no extra
+    model swap). Returns a Vietnamese language name, matching how target
+    languages are phrased in the UI (e.g. "Tiếng Anh", "Tiếng Nhật")."""
+    sample_text = sample_text.strip()
+    if not sample_text:
+        return DEFAULT_SOURCE_LANG_LABEL
+    prompt = (
+        "What language is the following text written in? Respond with ONLY the language "
+        'name in Vietnamese (e.g. "Tiếng Anh", "Tiếng Nhật", "Tiếng Đức"), nothing else — '
+        "no punctuation, no explanation.\n\n"
+        f"Text:\n{sample_text[:1000]}"
+    )
+    try:
+        response = await ollama_client.chat(
+            ROUGH_MODEL, [{"role": "user", "content": prompt}], temperature=0.0
+        )
+        first_line = response.strip().splitlines()[0].strip()
+        detected = first_line.strip('"').strip("'").strip()
+        return detected or DEFAULT_SOURCE_LANG_LABEL
+    except (ollama_client.OllamaError, IndexError) as exc:
+        logger.warning("Source language detection failed, using placeholder: %s", exc)
+        return DEFAULT_SOURCE_LANG_LABEL
+
+
+async def rough_translate(chunk: Chunk, source_lang: str, target_lang: str, prev_tail: str) -> str:
     n = len(chunk.text_blocks)
     system = (
-        f"You are a professional literary translator. Translate the {lang} text into Vietnamese. "
-        f"The input has {n} paragraphs separated by blank lines; output exactly {n} paragraphs "
-        "separated by blank lines. Output only the translation, no commentary."
+        f"You are a professional literary translator. Translate the {source_lang} text into "
+        f"{target_lang}. The input has {n} paragraphs separated by blank lines; output exactly "
+        f"{n} paragraphs separated by blank lines. Output only the translation, no commentary. "
+        f"The output must be entirely in {target_lang} — never switch to {source_lang} or any "
+        "other language, not even for a single sentence or word (proper nouns, code, and "
+        "acronyms are the only exception and should be kept as-is). "
+        "Output plain text only — do not use Markdown formatting (no **bold**, no # headings, "
+        "no bullet lists) even for chapter titles or headings."
     )
     user = ""
     if prev_tail:
         user += f"Previously translated context (for continuity, do NOT re-translate):\n{prev_tail}\n\n"
     user += f"Text to translate:\n\n{chunk.source_text}"
-    return await ollama_client.chat(
+    raw = await ollama_client.chat(
         ROUGH_MODEL,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        temperature=0.3,
+        temperature=0.2,
     )
+    return strip_markdown_artifacts(raw)
 
 
-# Capitalized word preceded by a lowercase word — i.e. mid-sentence, so likely a proper noun
-MID_SENTENCE_CAPITALIZED = re.compile(r"[a-zà-þ,;]\s+([A-ZÀ-Þ][a-zà-þA-ZÀ-Þ'-]+)")
+# Capitalized word preceded by a lowercase word — i.e. mid-sentence, so likely a proper noun.
+# The anchor is a lookbehind (zero-width) rather than a consumed char, so back-to-back
+# capitalized words ("Victory Mansions") each get captured instead of only the first.
+# Relies on upper/lowercase distinction, so it only fires for Latin-cased source languages —
+# for scripts without case (CJK, Arabic, Thai, ...) this simply finds zero candidates, so
+# glossary consistency silently doesn't kick in rather than erroring.
+MID_SENTENCE_CAPITALIZED = re.compile(r"(?<=[a-zà-þ,;])\s+([A-ZÀ-Þ][a-zà-þA-ZÀ-Þ'-]+)")
 
 
 def new_capitalized_terms(source_text: str, glossary: dict[str, str]) -> set[str]:
@@ -49,14 +120,14 @@ def new_capitalized_terms(source_text: str, glossary: dict[str, str]) -> set[str
 
 
 async def extract_glossary_terms(
-    source_text: str, translated_text: str, glossary: dict[str, str]
+    source_text: str, translated_text: str, glossary: dict[str, str], target_lang: str
 ) -> dict[str, str]:
     """Ask the rough model how proper nouns were rendered; first-seen-wins merge."""
     candidates = new_capitalized_terms(source_text, glossary)
     if not candidates:
         return {}
     prompt = (
-        "Below is an original passage and its Vietnamese translation. For each proper noun "
+        f"Below is an original passage and its {target_lang} translation. For each proper noun "
         "(person, place, organization) in this list, give how it was rendered in the translation. "
         'Answer as strict JSON: {"terms": [{"source": "...", "translated": "..."}]}\n\n'
         f"Proper noun candidates: {sorted(candidates)}\n\n"
@@ -79,32 +150,49 @@ async def extract_glossary_terms(
 
 
 async def polish(
-    chunk: Chunk, source_lang: str, rough_text: str, glossary: dict[str, str], prev_tail: str
+    chunk: Chunk, source_lang: str, target_lang: str, rough_text: str,
+    glossary: dict[str, str], prev_tail: str
 ) -> str:
-    lang = LANG_NAMES.get(source_lang, source_lang)
     n = len(chunk.text_blocks)
     system = (
-        "Bạn là một biên tập viên văn học tiếng Việt. Nhiệm vụ: viết lại bản dịch nháp thành văn xuôi "
-        "tiếng Việt tự nhiên, trôi chảy, giữ đúng nghĩa so với nguyên bản. "
-        f"Bản dịch có {n} đoạn văn phân cách bằng dòng trống; giữ nguyên đúng {n} đoạn. "
-        "Chỉ xuất ra bản dịch đã chỉnh sửa, không thêm bình luận."
+        f"You are a literary editor writing in {target_lang}. Task: rewrite the draft translation "
+        f"into natural, flowing {target_lang} prose, keeping the exact meaning of the original. "
+        f"The translation has {n} paragraphs separated by blank lines; keep exactly {n} paragraphs. "
+        "Respond with ONLY the revised translation — no commentary, no explanation of your "
+        "reasoning or approach, no restating the task, nothing before or after the translation "
+        "itself. "
+        f"The output must be entirely in {target_lang} — never switch to {source_lang} or any "
+        "other language, not even for a single sentence or word. Proper nouns, code, and "
+        "acronyms are the only exception and should be kept as-is. "
+        "Output plain text only — do NOT use Markdown formatting (no **bold**, no # headings, "
+        "no bullet lists), even for chapter titles."
     )
     user = ""
     if glossary:
         pairs = "; ".join(f"{k} → {v}" for k, v in glossary.items())
-        user += f"Dùng nhất quán các tên riêng/thuật ngữ sau: {pairs}\n\n"
+        user += f"Use these proper nouns/terms consistently: {pairs}\n\n"
     if prev_tail:
-        user += f"Đoạn cuối của phần đã dịch trước đó (để nối mạch, KHÔNG dịch lại):\n{prev_tail}\n\n"
+        user += f"End of the previously translated text (for continuity, do NOT re-translate):\n{prev_tail}\n\n"
     user += (
-        f"Nguyên bản ({lang}):\n{chunk.source_text}\n\n"
-        f"Bản dịch nháp:\n{rough_text}\n\n"
-        "Hãy viết lại bản dịch cho tự nhiên hơn."
+        f"Original ({source_lang}):\n{chunk.source_text}\n\n"
+        f"Draft translation:\n{rough_text}\n\n"
+        f"Rewrite the draft translation to sound more natural. Output only the rewritten "
+        f"{target_lang} text, nothing else."
     )
-    return await ollama_client.chat(
-        POLISH_MODEL,
-        [{"role": "system", "content": system}, {"role": "user", "content": user}],
-        temperature=0.7,
-    )
+    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    cleaned = rough_text
+    for attempt in range(POLISH_MAX_ATTEMPTS):
+        raw = await ollama_client.chat(POLISH_MODEL, messages, temperature=0.3)
+        cleaned = strip_markdown_artifacts(raw)
+        if not _has_unexpected_cjk_leak(cleaned, target_lang):
+            return cleaned
+        logger.warning(
+            "Chunk %d: polish attempt %d leaked unexpected CJK characters, retrying",
+            chunk.index, attempt + 1,
+        )
+    logger.warning("Chunk %d: polish kept leaking CJK after %d attempts, falling back to rough draft",
+                    chunk.index, POLISH_MAX_ATTEMPTS)
+    return rough_text
 
 
 def tail_sentences(text: str, max_chars: int = 300) -> str:
@@ -126,29 +214,29 @@ def _split_or_fallback(text: str, expected: int, fallback: str, label: str, chun
 
 
 async def rough_translate_chunk(
-    chunk: Chunk, source_lang: str, glossary: dict[str, str], prev_tail: str
+    chunk: Chunk, source_lang: str, target_lang: str, glossary: dict[str, str], prev_tail: str
 ) -> tuple[list[str], dict[str, str], str]:
     """Rough pass + glossary extraction for one chunk (rough model only).
 
     Returns (per-block rough translations, glossary updates, new rough-tail for the next chunk).
     """
     text_blocks = chunk.text_blocks
-    rough = await rough_translate(chunk, source_lang, prev_tail)
-    glossary_updates = await extract_glossary_terms(chunk.source_text, rough, glossary)
+    rough = await rough_translate(chunk, source_lang, target_lang, prev_tail)
+    glossary_updates = await extract_glossary_terms(chunk.source_text, rough, glossary, target_lang)
 
     parts = _split_or_fallback(rough, len(text_blocks), rough, "rough", chunk.index)
     return parts, glossary_updates, tail_sentences(rough)
 
 
 async def polish_chunk(
-    chunk: Chunk, source_lang: str, glossary: dict[str, str], prev_tail: str
+    chunk: Chunk, source_lang: str, target_lang: str, glossary: dict[str, str], prev_tail: str
 ) -> tuple[list[str], str]:
     """Polish pass for one chunk, reading each block's already-saved rough_text
     (polish model only). Returns (per-block polished translations, new polish-tail).
     """
     text_blocks = chunk.text_blocks
     rough_joined = "\n\n".join(b.rough_text or "" for b in text_blocks)
-    polished = await polish(chunk, source_lang, rough_joined, glossary, prev_tail)
+    polished = await polish(chunk, source_lang, target_lang, rough_joined, glossary, prev_tail)
 
     parts = _split_or_fallback(polished, len(text_blocks), rough_joined, "polish", chunk.index)
     return parts, tail_sentences(polished)

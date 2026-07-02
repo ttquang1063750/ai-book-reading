@@ -1,0 +1,73 @@
+<div class="chat-header">
+  <div class="page-toolbar">
+    <a routerLink="/library" class="btn">← Thư viện</a>
+    <a [routerLink]="['/books', id(), 'read']" class="btn">Đọc sách</a>
+  </div>
+
+  <h1>Hỏi đáp về nội dung sách</h1>
+
+  @if (!loadingIndexStatus() && !isIndexing() && indexStatus()?.indexed && indexStatus()?.chunk_count !== 0) {
+    <div class="chat-toolbar">
+      <button class="btn regenerate" (click)="startIndexing()">Đánh lại index</button>
+      <button class="btn regenerate" (click)="clearHistory()">Xoá hội thoại</button>
+    </div>
+  }
+</div>
+
+<div class="chat-body">
+  @if (loadingIndexStatus()) {
+    <p class="hint">Đang tải…</p>
+  } @else if (isIndexing() || !indexStatus()?.indexed) {
+    <div class="empty-state">
+      @if (indexingError(); as message) {
+        <p class="error-banner">{{ message }}</p>
+      }
+      <p class="hint">Đang chuẩn bị dữ liệu để hỏi đáp — {{ indexProgressText() }}…</p>
+    </div>
+  } @else if (indexStatus()?.chunk_count === 0) {
+    <div class="empty-state">
+      <p class="hint">Sách này không có nội dung văn bản để hỏi đáp (toàn ảnh/mã nguồn).</p>
+    </div>
+  } @else {
+    @if (error(); as message) {
+      <p class="error-banner">{{ message }}</p>
+    }
+
+    <div class="message-list" #messageList>
+      @if (messages().length === 0 && streamingReply() === null) {
+        <p class="hint">Hỏi bất kỳ điều gì về nội dung cuốn sách này.</p>
+      }
+      @for (message of messages(); track $index) {
+        <div class="message" [class.user]="message.role === 'user'">
+          <div class="bubble" [innerHTML]="message.content | chatMarkdown"></div>
+        </div>
+      }
+      @if (streamingReply() !== null) {
+        <div class="message">
+          <div class="bubble streaming">
+            @if (streamingReply()) {
+              <div [innerHTML]="streamingReply() | chatMarkdown"></div>
+            } @else {
+              <span class="typing-indicator" aria-label="Đang xử lý">
+                <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+              </span>
+            }
+          </div>
+        </div>
+      }
+    </div>
+
+    <form class="composer" (submit)="$event.preventDefault(); send()">
+      <input
+        type="text"
+        placeholder="Nhập câu hỏi…"
+        [value]="draft()"
+        (input)="draft.set($any($event.target).value)"
+        [disabled]="sending()"
+      />
+      <button class="btn primary" type="submit" [disabled]="sending() || !draft().trim()">
+        Gửi
+      </button>
+    </form>
+  }
+</div>

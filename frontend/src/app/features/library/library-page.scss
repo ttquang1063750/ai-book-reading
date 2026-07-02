@@ -18,26 +18,29 @@
   gap: 1rem;
 }
 
-.lang-select {
+.lang-input {
   font-size: 0.9rem;
   display: flex;
   align-items: center;
   gap: 0.4rem;
 }
 
-.lang-select select {
+.lang-input input,
+.lang-input select {
   font: inherit;
+  width: 8.5rem;
   padding: 0.3em 0.5em;
-  border: 1px solid #c9c2b6;
+  border: 1px solid var(--color-border-strong);
   border-radius: 6px;
-  background: #fffdf9;
+  background: var(--color-surface);
+  color: var(--color-text);
 }
 
 .upload-button {
   display: inline-block;
   padding: 0.5em 1.2em;
-  background: #2b2b2b;
-  color: #fffdf9;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
   border-radius: 8px;
   cursor: pointer;
   font-size: 0.95rem;
@@ -49,15 +52,15 @@
 }
 
 .error-banner {
-  background: #fff5f5;
-  color: #9b2c2c;
-  border-left: 3px solid #9b2c2c;
+  background: var(--color-danger-bg);
+  color: var(--color-danger);
+  border-left: 3px solid var(--color-danger);
   padding: 0.6em 1em;
   border-radius: 4px;
 }
 
 .hint {
-  color: #777;
+  color: var(--color-text-muted);
   text-align: center;
   padding: 3rem 0;
 }
@@ -77,8 +80,8 @@
   align-items: center;
   gap: 1rem;
   padding: 1rem 1.25rem;
-  background: #fffdf9;
-  border: 1px solid #e5dfd4;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
   border-radius: 10px;
 }
 
@@ -90,12 +93,12 @@
 .meta {
   margin: 0;
   font-size: 0.85rem;
-  color: #777;
+  color: var(--color-text-muted);
 }
 
-.status-done { color: #276749; }
-.status-translating { color: #975a16; }
-.status-error { color: #9b2c2c; }
+.status-done { color: var(--color-success); }
+.status-translating { color: var(--color-warning); }
+.status-error { color: var(--color-danger); }
 
 .book-actions {
   display: flex;
@@ -107,25 +110,25 @@
   font: inherit;
   font-size: 0.9rem;
   padding: 0.4em 1em;
-  border: 1px solid #c9c2b6;
+  border: 1px solid var(--color-border-strong);
   border-radius: 8px;
-  background: #fffdf9;
-  color: #2b2b2b;
+  background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
   text-decoration: none;
 }
 
 .btn.primary {
-  background: #2b2b2b;
-  color: #fffdf9;
-  border-color: #2b2b2b;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-color: var(--color-accent);
 }
 
 .btn.danger {
-  color: #9b2c2c;
-  border-color: #d8b4b4;
+  color: var(--color-danger);
+  border-color: var(--color-danger-border);
 }
 
 .btn.danger:hover {
-  background: #fff5f5;
+  background: var(--color-danger-bg);
 }

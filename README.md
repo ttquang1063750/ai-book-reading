@@ -1,16 +1,17 @@
-# 📚 Dịch sách — Offline PDF → Vietnamese Book Translator
+# 📚 Dịch sách — Offline PDF Book Translator
 
-Ứng dụng local chạy **hoàn toàn offline**: upload sách PDF (tiếng Anh/Pháp), dịch toàn bộ sang tiếng Việt bằng AI local qua Ollama, đọc kết quả song ngữ trên web.
+Ứng dụng local chạy **hoàn toàn offline**: upload sách PDF ở ngôn ngữ bất kỳ, dịch toàn bộ sang ngôn ngữ đích bạn chọn (mặc định tiếng Việt) bằng AI local qua Ollama, đọc kết quả song ngữ trên web.
 
 ## Kiến trúc
 
 ```
-Angular 21 SPA (localhost:4200) → FastAPI (localhost:8000) → Ollama (localhost:11434)
+Angular 21 SPA (localhost:4210) → FastAPI (localhost:8000) → Ollama (localhost:11434)
 ```
 
-- **Dịch hybrid 2 giai đoạn**: `translategemma` dịch thô toàn bộ sách trước → `qwen2.5:14b` biên tập lại thành văn xuôi tiếng Việt tự nhiên sau. Chạy theo giai đoạn (không đổi model mỗi đoạn) để máy chỉ cần giữ 1 model trong RAM tại một thời điểm.
-- **Glossary tự động**: tên riêng được trích và giữ nhất quán xuyên suốt cuốn sách — xem tại trang **Giải nghĩa** của mỗi sách.
-- **Tóm tắt theo chương**: tạo tóm tắt tiếng Việt cho từng chương (dựa trên bản dịch), xem tại trang **Tóm tắt** — tạo theo yêu cầu sau khi dịch xong, không tự động chạy kèm job dịch.
+- **Ngôn ngữ nguồn tự động nhận diện, ngôn ngữ đích chọn sẵn**: ngôn ngữ của file PDF gốc được tự động phát hiện ngay sau khi trích xuất, không cần nhập tay. Ngôn ngữ đích chọn từ danh sách phổ biến (mặc định Tiếng Việt) hoặc tuỳ chỉnh — không giới hạn cố định, miễn model hỗ trợ.
+- **Dịch hybrid 2 giai đoạn**: `translategemma` dịch thô toàn bộ sách trước → `qwen2.5:14b` biên tập lại thành văn xuôi tự nhiên bằng ngôn ngữ đích sau. Chạy theo giai đoạn (không đổi model mỗi đoạn) để máy chỉ cần giữ 1 model trong RAM tại một thời điểm. Tên riêng được trích và giữ nhất quán xuyên suốt cuốn sách trong lúc dịch (nội bộ, không có trang riêng để xem).
+- **Tóm tắt theo chương**: tạo tóm tắt theo ngôn ngữ đích cho từng chương (dựa trên bản dịch), xem tại trang **Tóm tắt** — tạo theo yêu cầu sau khi dịch xong, không tự động chạy kèm job dịch.
+- **Hỏi đáp về nội dung sách**: chat hỏi-đáp dựa trên bản dịch (RAG, retrieval cục bộ + `qwen2.5`), đánh index tự động sau khi dịch xong, câu trả lời stream theo từng token.
 - **Đọc song ngữ**: xem bản gốc + bản dịch cạnh nhau, hoặc từng bản riêng. Giữ được in đậm/nghiêng, code block (không bị dịch, tránh hỏng cú pháp), thơ/địa chỉ (giữ xuống dòng), và hình ảnh gốc trong PDF.
 - Mỗi sách còn có file `output.html` độc lập tại `backend/data/books/{id}/` — mở trực tiếp bằng browser không cần chạy app.
 
@@ -49,7 +50,7 @@ uvicorn app.main:app --port 8000
 cd frontend && npm start
 ```
 
-Mở http://localhost:4200 → upload PDF → bấm **Dịch** → theo dõi tiến độ → **Đọc**. Sách đã dịch xong có thêm nút **Tóm tắt** (tạo tóm tắt từng chương) và **Giải nghĩa** (bảng tên riêng/thuật ngữ).
+Mở http://localhost:4210 → upload PDF → bấm **Dịch** → theo dõi tiến độ → **Đọc**. Sách đã dịch xong có thêm nút **Tóm tắt** (tạo tóm tắt từng chương) và **Hỏi đáp** (chat về nội dung sách).
 
 API docs (Swagger): http://localhost:8000/docs
 
@@ -65,7 +66,7 @@ API docs (Swagger): http://localhost:8000/docs
   | ≤8GB RAM / máy rất yếu | `qwen2.5:3b-instruct-q4_K_M` | ~2GB (văn phong kém tự nhiên hơn) |
 
   Chọn dòng Qwen2.5 vì được train đa ngôn ngữ rộng, cho tiếng Việt tự nhiên hơn các model cùng cỡ khác (Llama3.2, Gemma2). `ROUGH_MODEL` (`translategemma`, 3.3GB) đã đủ nhẹ, không cần đổi trừ khi máy dưới 8GB — lúc đó có thể bỏ hẳn bước polish, chỉ dùng rough pass để tiết kiệm tải thêm 1 model.
-- Dữ liệu nằm ở `backend/data/` (gitignored): SQLite (`app.db`) + mỗi sách một thư mục (`original.pdf`, `structure.json`, `glossary.json`, `output.html`). Glossary là JSON có thể sửa tay nếu muốn ép cách dịch một tên riêng.
+- Dữ liệu nằm ở `backend/data/` (gitignored): SQLite (`app.db`) + mỗi sách một thư mục (`original.pdf`, `structure.json`, `glossary.json`, `output.html`). `glossary.json` chỉ dùng nội bộ để dịch nhất quán tên riêng, có thể sửa tay file này nếu muốn ép cách dịch một tên riêng, dù không có UI riêng cho việc đó.
 
 ## Tài liệu dự án
 

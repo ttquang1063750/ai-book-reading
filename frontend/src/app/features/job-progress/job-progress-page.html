@@ -14,6 +14,9 @@
           · <span class="failed">{{ j.failed_chunks }} phần lỗi</span>
         }
       </p>
+      @if (etaLabel(); as eta) {
+        <p class="eta-text">{{ eta }}</p>
+      }
     } @else if (isRunning()) {
       <p class="progress-text">Đang chuẩn bị dữ liệu…</p>
     }
@@ -29,6 +32,7 @@
       }
       @if (isRunning()) {
         <a [routerLink]="['/books', id(), 'read']" class="btn">Xem trước phần đã dịch</a>
+        <button class="btn danger" (click)="cancel()">Hủy</button>
       }
       @if (!isRunning() && isFailed()) {
         <button class="btn primary" (click)="retryFailed()">Thử lại phần lỗi</button>

@@ -12,4 +12,6 @@ POLISH_MODEL = "qwen2.5:14b-instruct-q4_K_M"
 CHUNK_TOKEN_BUDGET = 1800
 CHARS_PER_TOKEN_ESTIMATE = 4
 
-CORS_ORIGINS = ["http://localhost:4200"]
+MAX_UPLOAD_BYTES = 200 * 1024 * 1024  # 200MB — generous for a scanned book, still bounded
+
+CORS_ORIGINS = ["http://localhost:4210"]

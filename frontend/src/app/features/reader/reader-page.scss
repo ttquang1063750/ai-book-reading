@@ -25,28 +25,86 @@
   font: inherit;
   font-size: 0.85rem;
   padding: 0.3em 1em;
-  border: 1px solid #c9c2b6;
+  border: 1px solid var(--color-border-strong);
   border-radius: 999px;
-  background: #fffdf9;
-  color: #2b2b2b;
+  background: var(--color-surface);
+  color: var(--color-text);
   cursor: pointer;
   text-decoration: none;
 }
 
 .reader-toolbar .btn.active {
-  background: #2b2b2b;
-  color: #fffdf9;
-  border-color: #2b2b2b;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  border-color: var(--color-accent);
+}
+
+.font-size-control {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.font-size-control .btn {
+  font-weight: 600;
+  min-width: 2.2rem;
+}
+
+.font-size-control .btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.toc-panel {
+  position: sticky;
+  top: 3.2rem;
+  z-index: 9;
+  max-width: 24rem;
+  margin: 0 auto 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0.5rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.toc-panel ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.toc-panel li button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.5em 0.75em;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+}
+
+.toc-panel li button:hover {
+  background: var(--color-hover);
+}
+
+/* So scrollIntoView doesn't tuck a chapter heading under the sticky toolbar. */
+.reader .block {
+  scroll-margin-top: 4rem;
 }
 
 .reader-hint {
   text-align: center;
-  color: #777;
+  color: var(--color-text-muted);
   padding: 3rem 0;
 }
 
 .reader-hint.error {
-  color: #9b2c2c;
+  color: var(--color-danger);
 }
 
 /* Book content (arrives via innerHTML) */
@@ -67,27 +125,28 @@
 .reader .block h3:first-child { margin-top: 0; }
 
 .reader p {
+  font-size: calc(1rem * var(--reader-font-scale, 1));
   margin: 0 0 1em 0;
   text-align: justify;
 }
 
 .reader .translation-error {
-  color: #9b2c2c;
-  background: #fff5f5;
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
   padding: 0.5em 0.75em;
-  border-left: 3px solid #9b2c2c;
+  border-left: 3px solid var(--color-danger);
   font-style: italic;
 }
 
 .reader .pending {
   opacity: 0.55;
-  border-left: 3px dashed #c98f2b;
+  border-left: 3px dashed var(--color-warning-border-dashed);
   padding-left: 0.75em;
 }
 
 .reader .pending::before {
   content: '(chưa dịch) ';
-  color: #975a16;
+  color: var(--color-warning);
   font-size: 0.8em;
   font-style: italic;
 }
@@ -97,9 +156,9 @@
   justify-content: center;
   align-items: center;
   gap: 1rem;
-  background: #fffaf0;
-  border: 1px solid #ecd9b0;
-  color: #975a16;
+  background: var(--color-warning-bg);
+  border: 1px solid var(--color-warning-border);
+  color: var(--color-warning);
   border-radius: 8px;
   padding: 0.6em 1em;
   margin-bottom: 1.5rem;
@@ -110,10 +169,10 @@
   font: inherit;
   font-size: 0.85rem;
   padding: 0.3em 1em;
-  border: 1px solid #c98f2b;
+  border: 1px solid var(--color-warning-border-dashed);
   border-radius: 999px;
-  background: #fffdf9;
-  color: #975a16;
+  background: var(--color-surface);
+  color: var(--color-warning);
   cursor: pointer;
 }
 
@@ -127,7 +186,7 @@
 }
 
 .reader.mode-both .original {
-  border-right: 1px solid #e5dfd4;
+  border-right: 1px solid var(--color-border);
   padding-right: 2.5rem;
   margin-right: -1.25rem;
 }
@@ -147,8 +206,8 @@
 }
 
 .reader .block-code-block pre {
-  background: #2b2b2b;
-  color: #e8e6e1;
+  background: var(--color-code-bg);
+  color: var(--color-code-text);
   padding: 1em 1.25em;
   border-radius: 8px;
   overflow-x: auto;
@@ -162,7 +221,7 @@
 
 .reader hr.page-break {
   border: none;
-  border-top: 1px dashed #d8d2c8;
+  border-top: 1px dashed var(--color-divider-dashed);
   margin: 2rem auto;
   width: 40%;
 }

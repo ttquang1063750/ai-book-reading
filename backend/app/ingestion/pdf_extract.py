@@ -37,6 +37,10 @@ class RawLine:
         return bool(self.spans) and all(s.mono for s in self.spans)
 
 
+class EncryptedPdfError(Exception):
+    """Raised when the uploaded PDF is password-protected and can't be read."""
+
+
 @dataclass
 class RawImage:
     page: int  # 1-based
@@ -91,6 +95,10 @@ def extract_raw_blocks(pdf_path: Path) -> tuple[list[RawBlock], list[RawImage], 
     blocks: list[RawBlock] = []
     images: list[RawImage] = []
     with pymupdf.open(pdf_path) as doc:
+        if doc.is_encrypted:
+            raise EncryptedPdfError(
+                "Sách bị khoá mật khẩu, vui lòng gỡ khoá trước khi tải lên."
+            )
         page_count = doc.page_count
         for page_index, page in enumerate(doc):
             page_dict = page.get_text("dict")

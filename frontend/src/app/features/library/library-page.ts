@@ -1,20 +1,43 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
 import { BooksStore } from '../../core/books.store';
-import { SourceLang } from '../../core/models/book.model';
+
+/** Curated list of common target languages — the user picks a destination to
+ * read in, so a short trusted list beats free text (no guessing how the model
+ * expects a language name spelled). "other" reveals a free-text fallback for
+ * anything not listed. */
+export const TARGET_LANG_PRESETS = [
+  'Tiếng Việt',
+  'Tiếng Anh',
+  'Tiếng Pháp',
+  'Tiếng Nhật',
+  'Tiếng Hàn',
+  'Tiếng Trung',
+  'Tiếng Đức',
+  'Tiếng Tây Ban Nha',
+  'Tiếng Ý',
+  'Tiếng Nga',
+  'Tiếng Thái',
+] as const;
 
 @Component({
   selector: 'app-library-page',
   imports: [RouterLink],
   templateUrl: './library-page.html',
-  styleUrl: './library-page.css',
+  styleUrl: './library-page.scss',
 })
 export class LibraryPage implements OnInit {
   private readonly router = inject(Router);
   readonly store = inject(BooksStore);
 
-  readonly sourceLang = signal<SourceLang>('en');
+  readonly targetLangPresets = TARGET_LANG_PRESETS;
+
+  readonly targetLangChoice = signal<string>('Tiếng Việt');
+  readonly targetLangCustom = signal('');
+  readonly targetLang = computed(() =>
+    this.targetLangChoice() === 'other' ? this.targetLangCustom().trim() : this.targetLangChoice()
+  );
   readonly error = signal<string | null>(null);
 
   ngOnInit(): void {
@@ -27,9 +50,14 @@ export class LibraryPage implements OnInit {
     input.value = '';
     if (!file) return;
 
+    if (!this.targetLang()) {
+      this.error.set('Vui lòng nhập ngôn ngữ đích (chọn "Khác…" cần gõ tên ngôn ngữ).');
+      return;
+    }
+
     this.error.set(null);
     try {
-      await this.store.upload(file, this.sourceLang());
+      await this.store.upload(file, this.targetLang());
     } catch {
       this.error.set('Upload thất bại — kiểm tra file PDF và thử lại.');
     }

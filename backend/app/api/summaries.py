@@ -7,7 +7,7 @@ from fastapi import APIRouter, HTTPException, Query
 from app.config import BOOKS_DIR
 from app.db import get_connection, get_job
 from app.models.schemas import ChapterSummaryOut, JobOut
-from app.pipeline.job_runner import has_running_job_for_book, start_summarize_job
+from app.pipeline.job_runner import get_book_lock, has_running_job_for_book, start_summarize_job
 
 router = APIRouter(prefix="/api/books", tags=["summaries"])
 
@@ -25,22 +25,24 @@ async def summarize_book(book_id: str, force: bool = Query(False)) -> JobOut:
     book = _get_book_or_404(book_id)
     if book["status"] != "done":
         raise HTTPException(status_code=409, detail="Book must finish translating before summarizing")
-    if has_running_job_for_book(book_id):
-        raise HTTPException(status_code=409, detail="A job is already running for this book")
 
-    if force:
-        summaries_path = BOOKS_DIR / book_id / "summaries.json"
-        summaries_path.unlink(missing_ok=True)
+    async with get_book_lock(book_id):
+        if has_running_job_for_book(book_id):
+            raise HTTPException(status_code=409, detail="A job is already running for this book")
 
-    job_id = uuid.uuid4().hex
-    now = datetime.now(timezone.utc).isoformat()
-    with get_connection() as conn:
-        conn.execute(
-            "INSERT INTO jobs (id, book_id, job_type, status, created_at, updated_at)"
-            " VALUES (?, ?, 'summarize', 'queued', ?, ?)",
-            (job_id, book_id, now, now),
-        )
-    start_summarize_job(job_id, book_id)
+        if force:
+            summaries_path = BOOKS_DIR / book_id / "summaries.json"
+            summaries_path.unlink(missing_ok=True)
+
+        job_id = uuid.uuid4().hex
+        now = datetime.now(timezone.utc).isoformat()
+        with get_connection() as conn:
+            conn.execute(
+                "INSERT INTO jobs (id, book_id, job_type, status, created_at, updated_at)"
+                " VALUES (?, ?, 'summarize', 'queued', ?, ?)",
+                (job_id, book_id, now, now),
+            )
+        start_summarize_job(job_id, book_id, book["target_lang"])
     return JobOut(**dict(get_job(job_id)))
 
 

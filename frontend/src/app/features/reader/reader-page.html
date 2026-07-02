@@ -1,8 +1,15 @@
 <div class="reader-toolbar">
   <div class="toolbar-left">
     <a routerLink="/library" class="btn back">← Thư viện</a>
+    @if (chapters().length > 0) {
+      <button class="btn" (click)="toggleToc()">☰ Mục lục</button>
+    }
     <a [routerLink]="['/books', id(), 'summary']" class="btn">Tóm tắt</a>
-    <a [routerLink]="['/books', id(), 'glossary']" class="btn">Giải nghĩa</a>
+    <a [routerLink]="['/books', id(), 'chat']" class="btn">Hỏi đáp</a>
+  </div>
+  <div class="font-size-control">
+    <button class="btn" (click)="decreaseFont()" [disabled]="!canDecreaseFont()" aria-label="Chữ nhỏ hơn">A−</button>
+    <button class="btn" (click)="increaseFont()" [disabled]="!canIncreaseFont()" aria-label="Chữ lớn hơn">A+</button>
   </div>
   <nav class="view-toggle">
     @for (m of modes; track m.value) {
@@ -12,6 +19,18 @@
     }
   </nav>
 </div>
+
+@if (showToc()) {
+  <nav class="toc-panel">
+    <ul>
+      @for (chapter of chapters(); track chapter.heading_block_id) {
+        <li>
+          <button (click)="goToChapter(chapter.heading_block_id)">{{ chapter.title }}</button>
+        </li>
+      }
+    </ul>
+  </nav>
+}
 
 @if (loading()) {
   <p class="reader-hint">Đang tải nội dung…</p>
@@ -24,5 +43,10 @@
       <button class="btn" (click)="reload()">↻ Tải phần mới dịch</button>
     </div>
   }
-  <div class="reader" [class]="mode()" [innerHTML]="safeHtml()"></div>
+  <div
+    class="reader"
+    [class]="mode()"
+    [style.--reader-font-scale]="fontScale()"
+    [innerHTML]="safeHtml()"
+  ></div>
 }

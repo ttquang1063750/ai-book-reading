@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS books (
     title TEXT NOT NULL,
     original_filename TEXT NOT NULL,
     source_lang TEXT NOT NULL,
+    target_lang TEXT NOT NULL DEFAULT 'Tiếng Việt',
     page_count INTEGER,
     created_at TEXT NOT NULL,
     status TEXT NOT NULL
@@ -35,9 +36,13 @@ def init_db() -> None:
     with get_connection() as conn:
         conn.executescript(SCHEMA)
         # Migration for DBs created before job_type existed.
-        columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
-        if "job_type" not in columns:
+        job_columns = {row["name"] for row in conn.execute("PRAGMA table_info(jobs)")}
+        if "job_type" not in job_columns:
             conn.execute("ALTER TABLE jobs ADD COLUMN job_type TEXT NOT NULL DEFAULT 'translate'")
+        # Migration for DBs created before target_lang was configurable (was always Vietnamese).
+        book_columns = {row["name"] for row in conn.execute("PRAGMA table_info(books)")}
+        if "target_lang" not in book_columns:
+            conn.execute("ALTER TABLE books ADD COLUMN target_lang TEXT NOT NULL DEFAULT 'Tiếng Việt'")
         # Jobs can't survive a process restart — mark any leftovers as interrupted.
         conn.execute(
             "UPDATE jobs SET status = 'error', error_message = 'Interrupted by server restart'"

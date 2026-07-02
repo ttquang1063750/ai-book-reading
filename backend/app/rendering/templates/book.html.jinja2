@@ -5,10 +5,45 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{{ title }}</title>
 <style>
+  /* Same token names/values as frontend/src/styles.scss — keep both in sync by hand;
+     this file has no build step, so it can't share an actual source with the SPA. */
+  :root {
+    --color-bg: #faf8f5;
+    --color-surface: #fffdf9;
+    --color-border: #e5dfd4;
+    --color-border-strong: #c9c2b6;
+    --color-text: #2b2b2b;
+    --color-accent: #2b2b2b;
+    --color-accent-contrast: #fffdf9;
+    --color-danger: #9b2c2c;
+    --color-danger-bg: #fff5f5;
+    --color-warning: #975a16;
+    --color-warning-border-dashed: #c98f2b;
+    --color-divider-dashed: #d8d2c8;
+    --color-code-bg: #2b2b2b;
+    --color-code-text: #e8e6e1;
+  }
+  /* Same dark values as frontend/src/styles.scss's :root.dark — kept in sync by hand. */
+  :root.dark {
+    --color-bg: #1c1c1c;
+    --color-surface: #262626;
+    --color-border: #3a3a3a;
+    --color-border-strong: #4d4d4d;
+    --color-text: #e8e6e1;
+    --color-accent: #e8e6e1;
+    --color-accent-contrast: #1c1c1c;
+    --color-danger: #e08585;
+    --color-danger-bg: #3a2020;
+    --color-warning: #d9a35c;
+    --color-warning-border-dashed: #c98f2b;
+    --color-divider-dashed: #4a4a4a;
+    --color-code-bg: #111111;
+    --color-code-text: #e8e6e1;
+  }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Arial, sans-serif;
-    background: #faf8f5;
-    color: #2b2b2b;
+    background: var(--color-bg);
+    color: var(--color-text);
     margin: 0;
     padding: 2rem 1rem;
     line-height: 1.75;
@@ -18,6 +53,8 @@
     top: 0.5rem;
     display: flex;
     justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
     gap: 0.5rem;
     margin-bottom: 2rem;
     z-index: 10;
@@ -26,34 +63,37 @@
     font: inherit;
     font-size: 0.85rem;
     padding: 0.3em 1em;
-    border: 1px solid #c9c2b6;
+    border: 1px solid var(--color-border-strong);
     border-radius: 999px;
-    background: #fffdf9;
+    background: var(--color-surface);
+    color: var(--color-text);
     cursor: pointer;
   }
-  .view-toggle button.active { background: #2b2b2b; color: #fffdf9; border-color: #2b2b2b; }
+  .view-toggle button.active { background: var(--color-accent); color: var(--color-accent-contrast); border-color: var(--color-accent); }
+  .view-toggle .spacer { width: 1px; height: 1.4em; background: var(--color-border-strong); margin: 0 0.25rem; }
+  .view-toggle .font-btn { font-weight: 600; min-width: 2.2rem; }
   article.book { max-width: 46rem; margin: 0 auto; }
   article.book.mode-both { max-width: 80rem; }
   h1.book-title { font-size: 1.9rem; text-align: center; margin-bottom: 2.5rem; }
   h2 { font-size: 1.5rem; margin-top: 1.2em; }
   h3 { font-size: 1.2rem; margin-top: 1em; }
   h2:first-child, h3:first-child { margin-top: 0; }
-  p { margin: 0 0 1em 0; text-align: justify; }
+  p { font-size: calc(1rem * var(--reader-font-scale, 1)); margin: 0 0 1em 0; text-align: justify; }
   .translation-error {
-    color: #9b2c2c;
-    background: #fff5f5;
+    color: var(--color-danger);
+    background: var(--color-danger-bg);
     padding: 0.5em 0.75em;
-    border-left: 3px solid #9b2c2c;
+    border-left: 3px solid var(--color-danger);
     font-style: italic;
   }
   .pending {
     opacity: 0.55;
-    border-left: 3px dashed #c98f2b;
+    border-left: 3px dashed var(--color-warning-border-dashed);
     padding-left: 0.75em;
   }
   .pending::before {
     content: "(chưa dịch) ";
-    color: #975a16;
+    color: var(--color-warning);
     font-size: 0.8em;
     font-style: italic;
   }
@@ -64,7 +104,7 @@
     gap: 0 2.5rem;
     align-items: start;
   }
-  .mode-both .original { border-right: 1px solid #e5dfd4; padding-right: 2.5rem; margin-right: -1.25rem; }
+  .mode-both .original { border-right: 1px solid var(--color-border); padding-right: 2.5rem; margin-right: -1.25rem; }
   .mode-original .translated { display: none; }
   .mode-translated .original { display: none; }
   /* Images and code listings are not translated — shown once, full width. */
@@ -77,8 +117,8 @@
     margin: 0 auto;
   }
   .block-code-block pre {
-    background: #2b2b2b;
-    color: #e8e6e1;
+    background: var(--color-code-bg);
+    color: var(--color-code-text);
     padding: 1em 1.25em;
     border-radius: 8px;
     overflow-x: auto;
@@ -90,7 +130,7 @@
   }
   hr.page-break {
     border: none;
-    border-top: 1px dashed #d8d2c8;
+    border-top: 1px dashed var(--color-divider-dashed);
     margin: 2rem auto;
     width: 40%;
   }
@@ -101,18 +141,57 @@
   <button data-mode="mode-both" class="active">Song ngữ</button>
   <button data-mode="mode-original">Bản gốc</button>
   <button data-mode="mode-translated">Bản dịch</button>
+  <span class="spacer"></span>
+  <button id="font-dec" class="font-btn" aria-label="Chữ nhỏ hơn">A−</button>
+  <button id="font-inc" class="font-btn" aria-label="Chữ lớn hơn">A+</button>
+  <span class="spacer"></span>
+  <button id="theme-toggle" aria-label="Đổi chế độ sáng/tối">🌙</button>
 </nav>
 {{ body | safe }}
 <script>
   const article = document.querySelector("article.book");
-  document.querySelectorAll(".view-toggle button").forEach((btn) => {
+  document.querySelectorAll(".view-toggle button[data-mode]").forEach((btn) => {
     btn.addEventListener("click", () => {
       article.classList.remove("mode-both", "mode-original", "mode-translated");
       article.classList.add(btn.dataset.mode);
-      document.querySelectorAll(".view-toggle button").forEach((b) => b.classList.remove("active"));
+      document.querySelectorAll(".view-toggle button[data-mode]").forEach((b) => b.classList.remove("active"));
       btn.classList.add("active");
     });
   });
+
+  // Dark mode — same localStorage key/values convention as the Angular app's
+  // ThemeService, though the two never actually share storage (different origins).
+  const THEME_KEY = "theme-dark";
+  const themeBtn = document.getElementById("theme-toggle");
+  function applyTheme(isDark) {
+    document.documentElement.classList.toggle("dark", isDark);
+    themeBtn.textContent = isDark ? "☀️" : "🌙";
+  }
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  const storedTheme = localStorage.getItem(THEME_KEY);
+  applyTheme(storedTheme !== null ? storedTheme === "1" : prefersDark);
+  themeBtn.addEventListener("click", () => {
+    const isDark = !document.documentElement.classList.contains("dark");
+    applyTheme(isDark);
+    localStorage.setItem(THEME_KEY, isDark ? "1" : "0");
+  });
+
+  // Font size
+  const FONT_KEY = "reader-font-scale";
+  const FONT_MIN = 0.85, FONT_MAX = 1.55, FONT_STEP = 0.15;
+  function applyFontScale(scale) {
+    document.documentElement.style.setProperty("--reader-font-scale", scale);
+  }
+  let fontScale = parseFloat(localStorage.getItem(FONT_KEY)) || 1;
+  if (fontScale < FONT_MIN || fontScale > FONT_MAX) fontScale = 1;
+  applyFontScale(fontScale);
+  function setFontScale(next) {
+    fontScale = Math.min(FONT_MAX, Math.max(FONT_MIN, next));
+    applyFontScale(fontScale);
+    localStorage.setItem(FONT_KEY, String(fontScale));
+  }
+  document.getElementById("font-dec").addEventListener("click", () => setFontScale(fontScale - FONT_STEP));
+  document.getElementById("font-inc").addEventListener("click", () => setFontScale(fontScale + FONT_STEP));
 </script>
 </body>
 </html>

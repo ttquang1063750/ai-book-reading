@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 
 import { BooksApiService } from './books-api.service';
-import { Book, Job, SourceLang } from './models/book.model';
+import { Book, Job, Lang } from './models/book.model';
 
 @Injectable({ providedIn: 'root' })
 export class BooksStore {
@@ -33,10 +33,10 @@ export class BooksStore {
     }
   }
 
-  async upload(file: File, sourceLang: SourceLang): Promise<Book> {
+  async upload(file: File, targetLang: Lang): Promise<Book> {
     this.uploadingSignal.set(true);
     try {
-      const book = await this.api.uploadBook(file, sourceLang);
+      const book = await this.api.uploadBook(file, targetLang);
       this.booksSignal.update((books) => [book, ...books]);
       return book;
     } finally {
@@ -60,6 +60,13 @@ export class BooksStore {
     const job = await this.api.retryFailed(jobId);
     this.activeJobSignal.set(job);
     this.patchBook(job.book_id, { status: 'translating' });
+    return job;
+  }
+
+  async cancelJob(jobId: string): Promise<Job> {
+    const job = await this.api.cancelJob(jobId);
+    this.activeJobSignal.set(job);
+    this.patchBook(job.book_id, { status: 'error' });
     return job;
   }
 

@@ -1,15 +1,30 @@
 <header class="page-header">
   <h1>Thư viện sách</h1>
   <div class="upload-controls">
-    <label class="lang-select">
-      Ngôn ngữ gốc:
-      <select [value]="sourceLang()" (change)="sourceLang.set($any($event.target).value)">
-        <option value="en">Tiếng Anh</option>
-        <option value="fr">Tiếng Pháp</option>
+    <label class="lang-input">
+      Ngôn ngữ đích:
+      <select
+        [value]="targetLangChoice()"
+        (change)="targetLangChoice.set($any($event.target).value)"
+      >
+        @for (lang of targetLangPresets; track lang) {
+          <option [value]="lang">{{ lang }}</option>
+        }
+        <option value="other">Khác…</option>
       </select>
     </label>
+    @if (targetLangChoice() === 'other') {
+      <label class="lang-input">
+        <input
+          type="text"
+          placeholder="Nhập ngôn ngữ đích…"
+          [value]="targetLangCustom()"
+          (input)="targetLangCustom.set($any($event.target).value)"
+        />
+      </label>
+    }
     <label class="upload-button" [class.disabled]="store.uploading()">
-      {{ store.uploading() ? 'Đang tải lên…' : '+ Tải sách PDF' }}
+      {{ store.uploading() ? 'Đang tải lên…' : 'Thêm sách PDF' }}
       <input type="file" accept="application/pdf" (change)="onFileSelected($event)" hidden />
     </label>
   </div>
@@ -22,7 +37,7 @@
 @if (store.loading()) {
   <p class="hint">Đang tải danh sách…</p>
 } @else if (store.books().length === 0) {
-  <p class="hint">Chưa có sách nào. Hãy tải lên một file PDF tiếng Anh hoặc tiếng Pháp.</p>
+  <p class="hint">Chưa có sách nào. Hãy tải lên một file PDF ở ngôn ngữ bất kỳ.</p>
 } @else {
   <ul class="book-list">
     @for (book of store.books(); track book.id) {
@@ -30,7 +45,7 @@
         <div class="book-info">
           <h2>{{ book.title }}</h2>
           <p class="meta">
-            {{ book.source_lang === 'en' ? 'Tiếng Anh' : 'Tiếng Pháp' }}
+            {{ book.source_lang || 'Đang nhận diện…' }} → {{ book.target_lang }}
             @if (book.page_count) {
               · {{ book.page_count }} trang
             }
@@ -42,7 +57,7 @@
             @case ('done') {
               <a [routerLink]="['/books', book.id, 'read']" class="btn primary">Đọc</a>
               <a [routerLink]="['/books', book.id, 'summary']" class="btn">Tóm tắt</a>
-              <a [routerLink]="['/books', book.id, 'glossary']" class="btn">Giải nghĩa</a>
+              <a [routerLink]="['/books', book.id, 'chat']" class="btn">Hỏi đáp</a>
               <a [href]="downloadUrl(book.id)" class="btn" download>Tải về</a>
               <button class="btn" (click)="translate(book.id)">Dịch lại</button>
             }

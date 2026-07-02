@@ -1,4 +1,4 @@
-"""Per-chapter summaries of the translated (Vietnamese) text, via the polish model."""
+"""Per-chapter summaries of the translated text, via the polish model."""
 
 import logging
 from dataclasses import dataclass, field
@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 # Leaves ample room in the polish model's context for prompt overhead + output.
 SUMMARY_GROUP_TOKEN_BUDGET = 6000
-DEFAULT_CHAPTER_TITLE = "Mở đầu"
 
 
 @dataclass
@@ -42,7 +41,10 @@ def split_into_chapters(blocks: list[Block], book_title: str) -> list[Chapter]:
         if block.type in ("page_break",):
             continue
         if current is None:
-            current = Chapter(heading_block_id=-1, title=DEFAULT_CHAPTER_TITLE)
+            # No heading precedes this content — reuse the book title rather than a
+            # hardcoded placeholder label, which would otherwise need translating
+            # into whatever language the book happens to target.
+            current = Chapter(heading_block_id=-1, title=book_title)
             chapters.append(current)
         current.blocks.append(block)
 
@@ -70,13 +72,13 @@ def _group_by_budget(text: str, budget: int = SUMMARY_GROUP_TOKEN_BUDGET) -> lis
     return groups or [text]
 
 
-async def _summarize_text(text: str, title: str) -> str:
+async def _summarize_text(text: str, title: str, target_lang: str) -> str:
     system = (
-        "Bạn là một biên tập viên sách. Viết một đoạn tóm tắt ngắn gọn (khoảng 4-8 câu) bằng "
-        "tiếng Việt cho nội dung được cung cấp, nêu bật các nhân vật/sự kiện/ý chính, không thêm "
-        "bình luận, không lặp lại tiêu đề."
+        f"You are a book editor. Write a short summary (about 4-8 sentences) in {target_lang} "
+        "for the given content, highlighting the main characters/events/ideas. No commentary, "
+        "do not repeat the title."
     )
-    user = f"Chương: {title}\n\nNội dung:\n{text}"
+    user = f"Chapter: {title}\n\nContent:\n{text}"
     return await ollama_client.chat(
         POLISH_MODEL,
         [{"role": "system", "content": system}, {"role": "user", "content": user}],
@@ -84,15 +86,15 @@ async def _summarize_text(text: str, title: str) -> str:
     )
 
 
-async def summarize_chapter(chapter: Chapter) -> str:
+async def summarize_chapter(chapter: Chapter, target_lang: str) -> str:
     """Map-reduce summary: summarize directly if short enough, else summarize each
     group and combine those partial summaries into one final summary."""
     text = chapter.translated_text
     if estimate_tokens(text) <= SUMMARY_GROUP_TOKEN_BUDGET:
-        return (await _summarize_text(text, chapter.title)).strip()
+        return (await _summarize_text(text, chapter.title, target_lang)).strip()
 
     groups = _group_by_budget(text)
     logger.info("Chapter '%s' too long (%d groups) — using map-reduce summary", chapter.title, len(groups))
-    partials = [await _summarize_text(g, chapter.title) for g in groups]
+    partials = [await _summarize_text(g, chapter.title, target_lang) for g in groups]
     combined = "\n\n".join(f"- {p.strip()}" for p in partials)
-    return (await _summarize_text(combined, chapter.title)).strip()
+    return (await _summarize_text(combined, chapter.title, target_lang)).strip()

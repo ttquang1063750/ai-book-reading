@@ -16,13 +16,12 @@ export const routes: Routes = [
     loadComponent: () => import('./features/reader/reader-page').then((m) => m.ReaderPage),
   },
   {
-    path: 'books/:id/glossary',
-    loadComponent: () =>
-      import('./features/glossary/glossary-page').then((m) => m.GlossaryPage),
-  },
-  {
     path: 'books/:id/summary',
     loadComponent: () => import('./features/summary/summary-page').then((m) => m.SummaryPage),
+  },
+  {
+    path: 'books/:id/chat',
+    loadComponent: () => import('./features/chat/chat-page').then((m) => m.ChatPage),
   },
   { path: '**', redirectTo: 'library' },
 ];

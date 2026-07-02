@@ -7,14 +7,11 @@ class BookOut(BaseModel):
     id: str
     title: str
     original_filename: str
-    source_lang: Literal["en", "fr"]
+    source_lang: str
+    target_lang: str
     page_count: int | None = None
     created_at: str
     status: Literal["uploaded", "extracted", "translating", "done", "error"]
-
-
-class GlossaryOut(BaseModel):
-    terms: dict[str, str]
 
 
 class ChapterSummaryOut(BaseModel):
@@ -23,10 +20,21 @@ class ChapterSummaryOut(BaseModel):
     summary: str | None = None
 
 
+class IndexStatusOut(BaseModel):
+    indexed: bool
+    chunk_count: int
+
+
+class ChatMessageOut(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str
+    timestamp: str
+
+
 class JobOut(BaseModel):
     id: str
     book_id: str
-    job_type: Literal["translate", "summarize"] = "translate"
+    job_type: Literal["translate", "summarize", "index"] = "translate"
     status: Literal["queued", "running", "done", "error", "cancelled"]
     current_stage: str | None = None
     total_chunks: int | None = None

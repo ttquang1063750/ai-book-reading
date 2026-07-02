@@ -1,5 +1,8 @@
 <header class="app-header">
   <a routerLink="/library" class="app-title">📚 Dịch sách</a>
+  <button class="theme-toggle" (click)="theme.toggle()" [attr.aria-label]="theme.isDark() ? 'Chế độ sáng' : 'Chế độ tối'">
+    {{ theme.isDark() ? '☀️' : '🌙' }}
+  </button>
 </header>
 <main class="app-main">
   <router-outlet />

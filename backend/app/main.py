@@ -2,7 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.books import router as books_router
-from app.api.glossary import router as glossary_router
+from app.api.chapters import router as chapters_router
+from app.api.chat import router as chat_router
 from app.api.html import router as html_router
 from app.api.jobs import router as jobs_router
 from app.api.summaries import router as summaries_router
@@ -12,7 +13,8 @@ from app.db import init_db
 app = FastAPI(title="Book Translator")
 
 app.include_router(books_router)
-app.include_router(glossary_router)
+app.include_router(chapters_router)
+app.include_router(chat_router)
 app.include_router(html_router)
 app.include_router(jobs_router)
 app.include_router(summaries_router)

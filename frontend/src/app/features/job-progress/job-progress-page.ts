@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, signal } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
 import { catchError, exhaustMap, of, switchMap, takeWhile, timer } from 'rxjs';
@@ -15,7 +15,7 @@ const isActive = (job: Job): boolean => job.status === 'queued' || job.status ==
   selector: 'app-job-progress-page',
   imports: [RouterLink],
   templateUrl: './job-progress-page.html',
-  styleUrl: './job-progress-page.css',
+  styleUrl: './job-progress-page.scss',
 })
 export class JobProgressPage {
   /** Route param `:id`, bound via withComponentInputBinding. */
@@ -67,6 +67,49 @@ export class JobProgressPage {
     return stage ? (labels[stage] ?? stage) : 'Đang chuẩn bị…';
   });
 
+  /** Poll-time samples for the current stage only — reset whenever the stage changes,
+   * since rough/polish run at different speeds and total_chunks can differ too. */
+  private readonly stageHistory = signal<{ time: number; completed: number }[]>([]);
+  private lastStage: string | null = null;
+
+  constructor() {
+    effect(() => {
+      const j = this.job();
+      if (!j || !j.total_chunks) return;
+      if (j.current_stage !== this.lastStage) {
+        this.lastStage = j.current_stage;
+        this.stageHistory.set([{ time: Date.now(), completed: j.completed_chunks }]);
+        return;
+      }
+      this.stageHistory.update((h) => [...h, { time: Date.now(), completed: j.completed_chunks }].slice(-10));
+    });
+  }
+
+  readonly etaLabel = computed(() => {
+    const j = this.job();
+    if (!j?.total_chunks || !this.isRunning()) return null;
+    const history = this.stageHistory();
+    if (history.length < 2) return null;
+
+    const first = history[0];
+    const last = history[history.length - 1];
+    const elapsedSec = (last.time - first.time) / 1000;
+    const doneDelta = last.completed - first.completed;
+    if (elapsedSec < 5 || doneDelta <= 0) return null;
+
+    const perChunkSec = elapsedSec / doneDelta;
+    const remaining = j.total_chunks - j.completed_chunks;
+    const etaSec = Math.round(remaining * perChunkSec);
+    if (etaSec <= 0) return null;
+
+    const minutes = Math.round(etaSec / 60);
+    if (minutes < 1) return 'Còn khoảng dưới 1 phút';
+    if (minutes < 60) return `Còn khoảng ~${minutes} phút`;
+    const hours = Math.floor(minutes / 60);
+    const restMin = minutes % 60;
+    return `Còn khoảng ~${hours} giờ ${restMin} phút`;
+  });
+
   downloadUrl(): string {
     return `/api/books/${this.id()}/download`;
   }
@@ -75,6 +118,14 @@ export class JobProgressPage {
     const job = this.job();
     if (!job) return;
     await this.store.retryFailed(job.id);
+    this.restart.update((n) => n + 1);
+  }
+
+  async cancel(): Promise<void> {
+    const job = this.job();
+    if (!job) return;
+    if (!confirm('Hủy job dịch này? Phần đã dịch xong vẫn được giữ lại, có thể tiếp tục sau.')) return;
+    await this.store.cancelJob(job.id);
     this.restart.update((n) => n + 1);
   }
 }

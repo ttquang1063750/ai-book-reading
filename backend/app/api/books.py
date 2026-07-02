@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 
-from app.config import BOOKS_DIR
+from app.config import BOOKS_DIR, MAX_UPLOAD_BYTES
 from app.db import get_connection
 from app.models.schemas import BookOut
 from app.pipeline.job_runner import has_running_job_for_book
@@ -18,9 +18,15 @@ def _row_to_book(row) -> BookOut:
 
 
 @router.post("", response_model=BookOut, status_code=201)
-async def upload_book(file: UploadFile, source_lang: str = Form(...)) -> BookOut:
-    if source_lang not in ("en", "fr"):
-        raise HTTPException(status_code=422, detail="source_lang must be 'en' or 'fr'")
+async def upload_book(
+    file: UploadFile,
+    target_lang: str = Form("Tiếng Việt"),
+) -> BookOut:
+    # source_lang is intentionally not accepted here — it's auto-detected from
+    # the PDF's own text right after extraction, when the translation job runs.
+    target_lang = target_lang.strip()
+    if not target_lang or len(target_lang) > 50:
+        raise HTTPException(status_code=422, detail="target_lang must be 1-50 characters")
     filename = file.filename or "book.pdf"
     if not filename.lower().endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
@@ -31,8 +37,14 @@ async def upload_book(file: UploadFile, source_lang: str = Form(...)) -> BookOut
 
     pdf_path = book_dir / "original.pdf"
     content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        book_dir.rmdir()
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large — max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
+        )
     if not content.startswith(b"%PDF"):
-        pdf_path.parent.rmdir()
+        book_dir.rmdir()
         raise HTTPException(status_code=422, detail="File does not look like a PDF")
     pdf_path.write_bytes(content)
 
@@ -40,16 +52,17 @@ async def upload_book(file: UploadFile, source_lang: str = Form(...)) -> BookOut
     created_at = datetime.now(timezone.utc).isoformat()
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO books (id, title, original_filename, source_lang, page_count, created_at, status)"
-            " VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (book_id, title, filename, source_lang, None, created_at, "uploaded"),
+            "INSERT INTO books (id, title, original_filename, source_lang, target_lang, page_count, created_at, status)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (book_id, title, filename, "", target_lang, None, created_at, "uploaded"),
         )
 
     return BookOut(
         id=book_id,
         title=title,
         original_filename=filename,
-        source_lang=source_lang,
+        source_lang="",
+        target_lang=target_lang,
         page_count=None,
         created_at=created_at,
         status="uploaded",

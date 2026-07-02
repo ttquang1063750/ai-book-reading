@@ -14,7 +14,7 @@ const isActive = (job: Job): boolean => job.status === 'queued' || job.status ==
   selector: 'app-summary-page',
   imports: [RouterLink],
   templateUrl: './summary-page.html',
-  styleUrl: './summary-page.css',
+  styleUrl: './summary-page.scss',
 })
 export class SummaryPage implements OnInit {
   readonly id = input.required<string>();

@@ -2,7 +2,15 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, firstValueFrom } from 'rxjs';
 
-import { Book, ChapterSummary, Glossary, Job, SourceLang } from './models/book.model';
+import {
+  Book,
+  Chapter,
+  ChapterSummary,
+  ChatMessage,
+  IndexStatus,
+  Job,
+  Lang,
+} from './models/book.model';
 
 @Injectable({ providedIn: 'root' })
 export class BooksApiService {
@@ -21,10 +29,10 @@ export class BooksApiService {
     return firstValueFrom(this.http.delete<void>(`${this.base}/books/${bookId}`));
   }
 
-  uploadBook(file: File, sourceLang: SourceLang): Promise<Book> {
+  uploadBook(file: File, targetLang: Lang): Promise<Book> {
     const form = new FormData();
     form.append('file', file);
-    form.append('source_lang', sourceLang);
+    form.append('target_lang', targetLang);
     return firstValueFrom(this.http.post<Book>(`${this.base}/books`, form));
   }
 
@@ -49,6 +57,10 @@ export class BooksApiService {
     return firstValueFrom(this.http.post<Job>(`${this.base}/jobs/${jobId}/retry-failed`, null));
   }
 
+  cancelJob(jobId: string): Promise<Job> {
+    return firstValueFrom(this.http.post<Job>(`${this.base}/jobs/${jobId}/cancel`, null));
+  }
+
   getBookHtml(bookId: string): Promise<string> {
     return firstValueFrom(
       this.http.get(`${this.base}/books/${bookId}/html`, { responseType: 'text' })
@@ -60,8 +72,8 @@ export class BooksApiService {
     return this.http.get(`${this.base}/books/${bookId}/html`, { responseType: 'text' });
   }
 
-  getGlossary(bookId: string): Promise<Glossary> {
-    return firstValueFrom(this.http.get<Glossary>(`${this.base}/books/${bookId}/glossary`));
+  getChapters(bookId: string): Promise<Chapter[]> {
+    return firstValueFrom(this.http.get<Chapter[]>(`${this.base}/books/${bookId}/chapters`));
   }
 
   getSummaries(bookId: string): Promise<ChapterSummary[]> {
@@ -75,5 +87,51 @@ export class BooksApiService {
     return firstValueFrom(
       this.http.post<Job>(`${this.base}/books/${bookId}/summarize${suffix}`, null)
     );
+  }
+
+  getIndexStatus(bookId: string): Promise<IndexStatus> {
+    return firstValueFrom(this.http.get<IndexStatus>(`${this.base}/books/${bookId}/index-status`));
+  }
+
+  startIndexing(bookId: string): Promise<Job> {
+    return firstValueFrom(this.http.post<Job>(`${this.base}/books/${bookId}/index`, null));
+  }
+
+  getChatHistory(bookId: string): Promise<ChatMessage[]> {
+    return firstValueFrom(
+      this.http.get<ChatMessage[]>(`${this.base}/books/${bookId}/chat/history`)
+    );
+  }
+
+  clearChatHistory(bookId: string): Promise<void> {
+    return firstValueFrom(this.http.delete<void>(`${this.base}/books/${bookId}/chat/history`));
+  }
+
+  /**
+   * Streams the assistant's reply via fetch()+ReadableStream — HttpClient has
+   * no incremental-body API, so this bypasses it (unlike every other method
+   * in this service) purely for that reason.
+   */
+  async streamChatMessage(
+    bookId: string,
+    message: string,
+    onToken: (token: string) => void
+  ): Promise<void> {
+    const response = await fetch(`${this.base}/books/${bookId}/chat/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    });
+    if (!response.ok || !response.body) {
+      const detail = await response.text().catch(() => '');
+      throw new Error(detail || `Chat request failed: ${response.status}`);
+    }
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      onToken(decoder.decode(value, { stream: true }));
+    }
   }
 }

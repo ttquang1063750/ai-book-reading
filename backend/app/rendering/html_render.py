@@ -40,6 +40,10 @@ def _translated_html(block: Block) -> str:
 
 
 def _render_block(block: Block) -> str:
+    # A stable anchor for each block, used by the reader's chapter navigation
+    # (heading blocks in particular — see api/chapters.py) to scroll to a section.
+    anchor = f' id="block-{block.id}"'
+
     if block.type == "page_break":
         return f'<hr class="page-break" data-page="{block.page}">'
 
@@ -47,12 +51,12 @@ def _render_block(block: Block) -> str:
         # Not translated — render once, spanning both columns instead of duplicating.
         cls = "media" if block.type == "image" else "code-block"
         content = block.html if block.type == "image" else f"<pre><code>{block.html}</code></pre>"
-        return f'<div class="block block-{cls}">{content}</div>'
+        return f'<div class="block block-{cls}"{anchor}>{content}</div>'
 
     original = _wrap(block, _original_html(block))
     translated = _translated_html(block)
     return (
-        f'<div class="block">'
+        f'<div class="block"{anchor}>'
         f'<div class="original" lang="und">{original}</div>'
         f'<div class="translated" lang="vi">{translated}</div>'
         f"</div>"
