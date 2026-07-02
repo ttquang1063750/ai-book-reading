@@ -1,0 +1,66 @@
+<header class="page-header">
+  <h1>Thư viện sách</h1>
+  <div class="upload-controls">
+    <label class="lang-select">
+      Ngôn ngữ gốc:
+      <select [value]="sourceLang()" (change)="sourceLang.set($any($event.target).value)">
+        <option value="en">Tiếng Anh</option>
+        <option value="fr">Tiếng Pháp</option>
+      </select>
+    </label>
+    <label class="upload-button" [class.disabled]="store.uploading()">
+      {{ store.uploading() ? 'Đang tải lên…' : '+ Tải sách PDF' }}
+      <input type="file" accept="application/pdf" (change)="onFileSelected($event)" hidden />
+    </label>
+  </div>
+</header>
+
+@if (error(); as message) {
+  <p class="error-banner">{{ message }}</p>
+}
+
+@if (store.loading()) {
+  <p class="hint">Đang tải danh sách…</p>
+} @else if (store.books().length === 0) {
+  <p class="hint">Chưa có sách nào. Hãy tải lên một file PDF tiếng Anh hoặc tiếng Pháp.</p>
+} @else {
+  <ul class="book-list">
+    @for (book of store.books(); track book.id) {
+      <li class="book-card">
+        <div class="book-info">
+          <h2>{{ book.title }}</h2>
+          <p class="meta">
+            {{ book.source_lang === 'en' ? 'Tiếng Anh' : 'Tiếng Pháp' }}
+            @if (book.page_count) {
+              · {{ book.page_count }} trang
+            }
+            · <span class="status" [class]="'status-' + book.status">{{ statusLabel(book.status) }}</span>
+          </p>
+        </div>
+        <div class="book-actions">
+          @switch (book.status) {
+            @case ('done') {
+              <a [routerLink]="['/books', book.id, 'read']" class="btn primary">Đọc</a>
+              <a [href]="downloadUrl(book.id)" class="btn" download>Tải về</a>
+              <button class="btn" (click)="translate(book.id)">Dịch lại</button>
+            }
+            @case ('translating') {
+              <a [routerLink]="['/books', book.id, 'job']" class="btn">Xem tiến độ</a>
+              <a [routerLink]="['/books', book.id, 'read']" class="btn">Xem trước</a>
+            }
+            @case ('error') {
+              <a [routerLink]="['/books', book.id, 'job']" class="btn">Chi tiết lỗi</a>
+              <button class="btn primary" (click)="translate(book.id)">Dịch lại</button>
+            }
+            @default {
+              <button class="btn primary" (click)="translate(book.id)">Dịch</button>
+            }
+          }
+          @if (book.status !== 'translating') {
+            <button class="btn danger" (click)="remove(book.id, book.title)" title="Xoá sách">Xoá</button>
+          }
+        </div>
+      </li>
+    }
+  </ul>
+}

@@ -1,0 +1,163 @@
+/* Unscoped (ViewEncapsulation.None) so rules reach the [innerHTML] book content. */
+
+.reader-toolbar {
+  position: sticky;
+  top: 0.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  z-index: 10;
+}
+
+.reader-toolbar .view-toggle {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.reader-toolbar .btn {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.3em 1em;
+  border: 1px solid #c9c2b6;
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #2b2b2b;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.reader-toolbar .btn.active {
+  background: #2b2b2b;
+  color: #fffdf9;
+  border-color: #2b2b2b;
+}
+
+.reader-hint {
+  text-align: center;
+  color: #777;
+  padding: 3rem 0;
+}
+
+.reader-hint.error {
+  color: #9b2c2c;
+}
+
+/* Book content (arrives via innerHTML) */
+.reader article.book {
+  margin: 0 auto;
+  line-height: 1.75;
+}
+
+.reader h1.book-title {
+  font-size: 1.9rem;
+  text-align: center;
+  margin-bottom: 2.5rem;
+}
+
+.reader h2 { font-size: 1.5rem; margin-top: 1.2em; }
+.reader h3 { font-size: 1.2rem; margin-top: 1em; }
+.reader .block h2:first-child,
+.reader .block h3:first-child { margin-top: 0; }
+
+.reader p {
+  margin: 0 0 1em 0;
+  text-align: justify;
+}
+
+.reader .translation-error {
+  color: #9b2c2c;
+  background: #fff5f5;
+  padding: 0.5em 0.75em;
+  border-left: 3px solid #9b2c2c;
+  font-style: italic;
+}
+
+.reader .pending {
+  opacity: 0.55;
+  border-left: 3px dashed #c98f2b;
+  padding-left: 0.75em;
+}
+
+.reader .pending::before {
+  content: '(chưa dịch) ';
+  color: #975a16;
+  font-size: 0.8em;
+  font-style: italic;
+}
+
+.pending-banner {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 1rem;
+  background: #fffaf0;
+  border: 1px solid #ecd9b0;
+  color: #975a16;
+  border-radius: 8px;
+  padding: 0.6em 1em;
+  margin-bottom: 1.5rem;
+  font-size: 0.9rem;
+}
+
+.pending-banner .btn {
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.3em 1em;
+  border: 1px solid #c98f2b;
+  border-radius: 999px;
+  background: #fffdf9;
+  color: #975a16;
+  cursor: pointer;
+}
+
+.reader .block { margin-bottom: 0.25rem; }
+
+.reader.mode-both .block {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 2.5rem;
+  align-items: start;
+}
+
+.reader.mode-both .original {
+  border-right: 1px solid #e5dfd4;
+  padding-right: 2.5rem;
+  margin-right: -1.25rem;
+}
+
+.reader.mode-original .translated { display: none; }
+.reader.mode-translated .original { display: none; }
+
+/* Images and code listings are not translated — shown once, full width. */
+.reader .block-media, .reader .block-code-block {
+  margin: 1.25rem 0;
+}
+
+.reader .block-media img {
+  max-width: 100%;
+  display: block;
+  margin: 0 auto;
+}
+
+.reader .block-code-block pre {
+  background: #2b2b2b;
+  color: #e8e6e1;
+  padding: 1em 1.25em;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: 0.85em;
+  line-height: 1.5;
+}
+
+.reader .block-code-block code {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+}
+
+.reader hr.page-break {
+  border: none;
+  border-top: 1px dashed #d8d2c8;
+  margin: 2rem auto;
+  width: 40%;
+}

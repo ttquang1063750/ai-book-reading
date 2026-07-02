@@ -1,0 +1,44 @@
+<section class="job-progress">
+  <h1>Tiến độ dịch</h1>
+
+  @if (job(); as j) {
+    <p class="stage">{{ stageLabel() }}</p>
+
+    @if (j.total_chunks) {
+      <div class="progress-track" role="progressbar" [attr.aria-valuenow]="progressPercent()">
+        <div class="progress-fill" [style.width.%]="progressPercent()"></div>
+      </div>
+      <p class="progress-text">
+        {{ j.completed_chunks }}/{{ j.total_chunks }} phần ({{ progressPercent() }}%)
+        @if (j.failed_chunks > 0) {
+          · <span class="failed">{{ j.failed_chunks }} phần lỗi</span>
+        }
+      </p>
+    } @else if (isRunning()) {
+      <p class="progress-text">Đang chuẩn bị dữ liệu…</p>
+    }
+
+    @if (j.error_message) {
+      <p class="error-banner">{{ j.error_message }}</p>
+    }
+
+    <div class="actions">
+      @if (isDone() && !isFailed()) {
+        <a [routerLink]="['/books', id(), 'read']" class="btn primary">Đọc sách</a>
+        <a [href]="downloadUrl()" class="btn" download>Tải về</a>
+      }
+      @if (isRunning()) {
+        <a [routerLink]="['/books', id(), 'read']" class="btn">Xem trước phần đã dịch</a>
+      }
+      @if (!isRunning() && isFailed()) {
+        <button class="btn primary" (click)="retryFailed()">Thử lại phần lỗi</button>
+      }
+      <a routerLink="/library" class="btn">Về thư viện</a>
+    </div>
+  } @else {
+    <p class="hint">Không tìm thấy job dịch nào cho sách này.</p>
+    <div class="actions">
+      <a routerLink="/library" class="btn">Về thư viện</a>
+    </div>
+  }
+</section>

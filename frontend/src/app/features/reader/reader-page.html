@@ -1,0 +1,24 @@
+<div class="reader-toolbar">
+  <a routerLink="/library" class="btn back">← Thư viện</a>
+  <nav class="view-toggle">
+    @for (m of modes; track m.value) {
+      <button class="btn" [class.active]="mode() === m.value" (click)="mode.set(m.value)">
+        {{ m.label }}
+      </button>
+    }
+  </nav>
+</div>
+
+@if (loading()) {
+  <p class="reader-hint">Đang tải nội dung…</p>
+} @else if (failed()) {
+  <p class="reader-hint error">Không tải được nội dung sách — sách đã được dịch chưa?</p>
+} @else {
+  @if (hasPending()) {
+    <div class="pending-banner">
+      Sách đang được dịch — các đoạn <em>chưa dịch</em> hiển thị bản gốc mờ.
+      <button class="btn" (click)="reload()">↻ Tải phần mới dịch</button>
+    </div>
+  }
+  <div class="reader" [class]="mode()" [innerHTML]="safeHtml()"></div>
+}
