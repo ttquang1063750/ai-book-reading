@@ -32,6 +32,10 @@
   </nav>
 }
 
+@if (retranslateError(); as message) {
+  <p class="reader-hint error">{{ message }}</p>
+}
+
 @if (loading()) {
   <p class="reader-hint">Đang tải nội dung…</p>
 } @else if (failed()) {
@@ -48,5 +52,6 @@
     [class]="mode()"
     [style.--reader-font-scale]="fontScale()"
     [innerHTML]="safeHtml()"
+    (click)="onReaderClick($event)"
   ></div>
 }

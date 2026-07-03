@@ -195,6 +195,97 @@ async def test_get_or_detect_source_lang_detects_and_persists_when_unknown(tmp_p
     assert len(detect_calls) == 1
 
 
+class _FakeBookConn:
+    """Fake DB connection whose execute().fetchone() returns a fixed row —
+    for retranslate_block's SELECT of source_lang/target_lang."""
+
+    def __init__(self, row: dict):
+        self._row = row
+
+    def execute(self, sql, params=()):
+        return self
+
+    def fetchone(self):
+        return self._row
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc_info):
+        return False
+
+
+async def test_retranslate_block_updates_block_and_rerenders(tmp_path, monkeypatch):
+    structure = _structure_with_blocks(2)
+    book_dir = tmp_path / "book1"
+    book_dir.mkdir()
+    structure_path = book_dir / "structure.json"
+    structure.save(structure_path)
+
+    monkeypatch.setattr(job_runner, "BOOKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        job_runner, "get_connection",
+        lambda: _FakeBookConn({"source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt"}),
+    )
+    rendered = []
+    monkeypatch.setattr(job_runner, "render_book", lambda book_id: rendered.append(book_id))
+
+    async def _fake_rough(chunk, source_lang, target_lang, glossary, prev_tail):
+        return ["Bản dịch nháp mới."], {}, "tail"
+
+    async def _fake_polish(chunk, source_lang, target_lang, glossary, prev_tail):
+        return ["Bản dịch đã sửa, chính xác."], "tail"
+
+    monkeypatch.setattr(job_runner, "rough_translate_chunk", _fake_rough)
+    monkeypatch.setattr(job_runner, "polish_chunk", _fake_polish)
+
+    block = await job_runner.retranslate_block("book1", block_id=1)
+
+    assert block.translated_text == "Bản dịch đã sửa, chính xác."
+    assert block.rough_text == "Bản dịch nháp mới."
+    assert block.translation_error is False
+    assert rendered == ["book1"]
+    # Persisted, not just mutated in memory.
+    reloaded = BookStructure.load(structure_path)
+    assert reloaded.blocks[1].translated_text == "Bản dịch đã sửa, chính xác."
+
+
+async def test_retranslate_block_marks_error_and_reraises_on_failure(tmp_path, monkeypatch):
+    structure = _structure_with_blocks(2)
+    book_dir = tmp_path / "book1"
+    book_dir.mkdir()
+    structure_path = book_dir / "structure.json"
+    structure.save(structure_path)
+
+    monkeypatch.setattr(job_runner, "BOOKS_DIR", tmp_path)
+    monkeypatch.setattr(
+        job_runner, "get_connection",
+        lambda: _FakeBookConn({"source_lang": "Tiếng Anh", "target_lang": "Tiếng Việt"}),
+    )
+
+    async def _boom(*a, **kw):
+        raise RuntimeError("Ollama unreachable")
+
+    monkeypatch.setattr(job_runner, "rough_translate_chunk", _boom)
+
+    with pytest.raises(RuntimeError):
+        await job_runner.retranslate_block("book1", block_id=0)
+
+    reloaded = BookStructure.load(structure_path)
+    assert reloaded.blocks[0].translation_error is True
+
+
+async def test_retranslate_block_rejects_unknown_block_id(tmp_path, monkeypatch):
+    structure = _structure_with_blocks(2)
+    book_dir = tmp_path / "book1"
+    book_dir.mkdir()
+    structure.save(book_dir / "structure.json")
+    monkeypatch.setattr(job_runner, "BOOKS_DIR", tmp_path)
+
+    with pytest.raises(KeyError):
+        await job_runner.retranslate_block("book1", block_id=999)
+
+
 async def test_get_or_detect_source_lang_reuses_already_known_value(tmp_path, monkeypatch):
     structure = _structure_with_blocks(2)
     structure.source_lang = "Tiếng Pháp"  # already detected in a previous run

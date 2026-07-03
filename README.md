@@ -11,8 +11,9 @@ Angular 21 SPA (localhost:4210) → FastAPI (localhost:8000) → Ollama (localho
 - **Ngôn ngữ nguồn tự động nhận diện, ngôn ngữ đích chọn sẵn**: ngôn ngữ của file PDF gốc được tự động phát hiện ngay sau khi trích xuất, không cần nhập tay. Ngôn ngữ đích chọn từ danh sách phổ biến (mặc định Tiếng Việt) hoặc tuỳ chỉnh — không giới hạn cố định, miễn model hỗ trợ.
 - **Dịch hybrid 2 giai đoạn**: `translategemma` dịch thô toàn bộ sách trước → `qwen2.5:14b` biên tập lại thành văn xuôi tự nhiên bằng ngôn ngữ đích sau. Chạy theo giai đoạn (không đổi model mỗi đoạn) để máy chỉ cần giữ 1 model trong RAM tại một thời điểm. Tên riêng được trích và giữ nhất quán xuyên suốt cuốn sách trong lúc dịch (nội bộ, không có trang riêng để xem).
 - **Tóm tắt theo chương**: tạo tóm tắt theo ngôn ngữ đích cho từng chương (dựa trên bản dịch), xem tại trang **Tóm tắt** — tạo theo yêu cầu sau khi dịch xong, không tự động chạy kèm job dịch.
-- **Hỏi đáp về nội dung sách**: chat hỏi-đáp dựa trên bản dịch (RAG, retrieval cục bộ + `qwen2.5`), đánh index tự động sau khi dịch xong, câu trả lời stream theo từng token.
+- **Hỏi đáp về nội dung sách**: chat hỏi-đáp dựa trên bản dịch (RAG, retrieval cục bộ + `qwen2.5`), đánh index tự động sau khi dịch xong, câu trả lời stream theo từng token, hỗ trợ code block/công thức toán trong câu trả lời.
 - **Đọc song ngữ**: xem bản gốc + bản dịch cạnh nhau, hoặc từng bản riêng. Giữ được in đậm/nghiêng, code block (không bị dịch, tránh hỏng cú pháp), thơ/địa chỉ (giữ xuống dòng), và hình ảnh gốc trong PDF.
+- **Dịch lại từng đoạn**: mỗi đoạn văn ở trang đọc có nút ↻ (hiện khi rê chuột) để dịch lại riêng đoạn đó — hữu ích khi model dịch sai/lẫn ngôn ngữ ở một vài chỗ mà không cần dịch lại cả sách.
 - Mỗi sách còn có file `output.html` độc lập tại `backend/data/books/{id}/` — mở trực tiếp bằng browser không cần chạy app.
 
 ## Yêu cầu
@@ -41,6 +42,14 @@ npm install
 
 ## Chạy
 
+Cách nhanh nhất — 1 lệnh, tự kiểm tra/khởi động Ollama, tự pull model còn thiếu, khởi động cả backend lẫn frontend, tự mở browser:
+
+```bash
+./start.sh   # Ctrl+C để dừng tất cả
+```
+
+Hoặc chạy tay từng phần (hữu ích khi cần xem log riêng của từng service):
+
 ```bash
 # Terminal 1 — backend
 cd backend && source .venv/bin/activate
@@ -53,6 +62,26 @@ cd frontend && npm start
 Mở http://localhost:4210 → upload PDF → bấm **Dịch** → theo dõi tiến độ → **Đọc**. Sách đã dịch xong có thêm nút **Tóm tắt** (tạo tóm tắt từng chương) và **Hỏi đáp** (chat về nội dung sách).
 
 API docs (Swagger): http://localhost:8000/docs
+
+## Chạy bằng Docker
+
+Đóng gói backend + frontend vào container; **Ollama vẫn chạy native trên máy host**, không đưa vào Docker — trên macOS, Docker Desktop chạy container trong 1 VM Linux không pass-through được Metal/GPU của Apple Silicon, nên Ollama trong container sẽ rơi về CPU-only và chậm đi rất nhiều.
+
+```bash
+# 1. Ollama vẫn cài + chạy native như bình thường, đã pull đủ model
+ollama pull translategemma
+ollama pull qwen2.5:14b-instruct-q4_K_M
+ollama serve   # nếu chưa chạy sẵn
+
+# 2. Build + chạy backend/frontend trong container
+docker compose up --build   # thêm -d để chạy nền
+```
+
+Mở http://localhost:4210 như bình thường. Frontend (nginx) phục vụ Angular đã build sẵn và tự proxy `/api/*` sang backend cùng origin (giống `proxy.conf.json` lúc dev) — trình duyệt không cần biết backend chạy ở container nào. Backend nối tới Ollama trên host qua `http://host.docker.internal:11434` (khai trong `docker-compose.yml`, override được qua biến môi trường `OLLAMA_BASE_URL`).
+
+Dữ liệu (`backend/data/`) được mount làm volume nên vẫn giữ nguyên giữa các lần `docker compose up`/`down`, giống hệt khi chạy native.
+
+Dừng: `docker compose down` (thêm `-v` chỉ khi muốn xoá luôn dữ liệu — bình thường không cần).
 
 ## Ghi chú
 

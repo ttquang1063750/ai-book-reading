@@ -6,6 +6,7 @@ from app.pipeline import ollama_client
 from app.pipeline.chunking import Chunk
 from app.pipeline.translate import (
     DEFAULT_SOURCE_LANG_LABEL,
+    _has_wrong_language,
     _split_or_fallback,
     detect_source_language,
     new_capitalized_terms,
@@ -189,3 +190,35 @@ async def test_polish_does_not_flag_cjk_when_target_language_is_chinese(fake_oll
 
     assert parts == ["这是一个自然的中文翻译。"]
     assert len(fake_ollama.calls) == 1
+
+
+def test_has_wrong_language_detects_french_leak_into_vietnamese_target():
+    french_text = "Ceci est une phrase entièrement normale écrite en français."
+    assert _has_wrong_language(french_text, "Tiếng Việt") is True
+
+
+def test_has_wrong_language_accepts_correct_vietnamese():
+    vietnamese_text = "Đây là một câu hoàn toàn bình thường được viết bằng tiếng Việt."
+    assert _has_wrong_language(vietnamese_text, "Tiếng Việt") is False
+
+
+def test_has_wrong_language_skips_langdetect_for_short_text():
+    # Below LANGDETECT_MIN_CHARS — too short to trust, even though "Bonjour" is French.
+    assert _has_wrong_language("Bonjour", "Tiếng Việt") is False
+
+
+def test_has_wrong_language_skips_check_for_unmapped_custom_target():
+    french_text = "Ceci est une phrase entièrement normale écrite en français."
+    assert _has_wrong_language(french_text, "Klingon") is False
+
+
+async def test_polish_retries_when_french_leaks_into_vietnamese_target(fake_ollama):
+    blocks = [make_block(0, text="Original English.", rough_text="Bản dịch nháp sạch sẽ và dài đủ.")]
+    chunk = Chunk(index=0, blocks=blocks)
+    fake_ollama.queue("Ceci est une phrase entièrement normale écrite en français, pas en vietnamien.")
+    fake_ollama.queue("Đây là bản dịch tiếng Việt hoàn chỉnh và đúng ngôn ngữ đích được yêu cầu.")
+
+    parts, _tail = await polish_chunk(chunk, "en", "Tiếng Việt", {}, "")
+
+    assert parts == ["Đây là bản dịch tiếng Việt hoàn chỉnh và đúng ngôn ngữ đích được yêu cầu."]
+    assert len(fake_ollama.calls) == 2

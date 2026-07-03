@@ -4,9 +4,13 @@ import json
 import logging
 import re
 
+from langdetect import DetectorFactory, LangDetectException, detect
+
 from app.config import POLISH_MODEL, ROUGH_MODEL
 from app.pipeline import ollama_client
 from app.pipeline.chunking import Chunk
+
+DetectorFactory.seed = 0  # langdetect is otherwise non-deterministic on ambiguous text
 
 logger = logging.getLogger(__name__)
 
@@ -33,14 +37,30 @@ def split_paragraphs(text: str, expected: int) -> list[str] | None:
 
 # qwen2.5 (the polish model) has a reproducible failure mode on literary/narrative
 # prose — independent of source/target language — where it "thinks out loud" in
-# Chinese before giving the actual answer (e.g. "请注意，这里的...应改为纯越南文：" mid-output).
-# Confirmed via live testing: 0/3 on technical content, 3/3 on narrative sentences,
-# across multiple unrelated source/target language pairs — a model quirk, not
-# something a better prompt reliably prevents. Detected and retried defensively
-# instead, same fallback-chain idiom as _split_or_fallback below.
+# Chinese before giving the actual answer (e.g. "请注意，这里的...应改为纯越南文：" mid-output),
+# or occasionally drifts into a wrong Latin-script language entirely (e.g. French
+# instead of Vietnamese). Confirmed via live testing: 0/3 on technical content,
+# 3/3 on narrative sentences, across multiple unrelated source/target language
+# pairs — a model quirk, not something a better prompt reliably prevents.
+# Detected and retried defensively instead, same fallback-chain idiom as
+# _split_or_fallback below.
 CJK_CHAR = re.compile(r"[一-鿿㐀-䶿]")
 _CJK_TARGET_KEYWORDS = ("trung", "nhật", "hàn", "chinese", "japanese", "korean", "中文", "日本語", "한국어")
 POLISH_MAX_ATTEMPTS = 3
+
+# ISO 639-1 codes langdetect returns, for the curated target-language presets offered
+# in the upload UI (frontend/library-page.ts's TARGET_LANG_PRESETS) — used to catch
+# leaks between languages that share the Latin script (CJK regex above can't tell
+# French from Vietnamese, both are just "Latin letters" to a character check).
+# Free-text/"Khác…" target languages outside this list fall back to the CJK-only
+# check — there's no reliable way to map arbitrary text to an ISO code.
+_TARGET_LANG_ISO = {
+    "tiếng việt": "vi", "tiếng anh": "en", "tiếng pháp": "fr", "tiếng nhật": "ja",
+    "tiếng hàn": "ko", "tiếng trung": "zh-cn", "tiếng đức": "de",
+    "tiếng tây ban nha": "es", "tiếng ý": "it", "tiếng nga": "ru", "tiếng thái": "th",
+}
+# Below this, langdetect's confidence is too low to trust (e.g. a lone short heading).
+LANGDETECT_MIN_CHARS = 20
 
 
 def _target_expects_cjk(target_lang: str) -> bool:
@@ -50,6 +70,21 @@ def _target_expects_cjk(target_lang: str) -> bool:
 
 def _has_unexpected_cjk_leak(text: str, target_lang: str) -> bool:
     return not _target_expects_cjk(target_lang) and bool(CJK_CHAR.search(text))
+
+
+def _has_wrong_language(text: str, target_lang: str) -> bool:
+    """Broader check than the CJK regex: also catches wrong-but-same-script leaks
+    (e.g. French output when the target is Vietnamese) via offline language
+    detection, for the target languages we can map to an ISO code."""
+    if _has_unexpected_cjk_leak(text, target_lang):
+        return True
+    expected_iso = _TARGET_LANG_ISO.get(target_lang.strip().lower())
+    if expected_iso is None or len(text.strip()) < LANGDETECT_MIN_CHARS:
+        return False
+    try:
+        return detect(text) != expected_iso
+    except LangDetectException:
+        return False  # too ambiguous to call — don't block a retry loop on it
 
 
 DEFAULT_SOURCE_LANG_LABEL = "Không xác định"
@@ -184,14 +219,14 @@ async def polish(
     for attempt in range(POLISH_MAX_ATTEMPTS):
         raw = await ollama_client.chat(POLISH_MODEL, messages, temperature=0.3)
         cleaned = strip_markdown_artifacts(raw)
-        if not _has_unexpected_cjk_leak(cleaned, target_lang):
+        if not _has_wrong_language(cleaned, target_lang):
             return cleaned
         logger.warning(
-            "Chunk %d: polish attempt %d leaked unexpected CJK characters, retrying",
+            "Chunk %d: polish attempt %d produced text in the wrong language, retrying",
             chunk.index, attempt + 1,
         )
-    logger.warning("Chunk %d: polish kept leaking CJK after %d attempts, falling back to rough draft",
-                    chunk.index, POLISH_MAX_ATTEMPTS)
+    logger.warning("Chunk %d: polish kept producing the wrong language after %d attempts, "
+                    "falling back to rough draft", chunk.index, POLISH_MAX_ATTEMPTS)
     return rough_text
 
 

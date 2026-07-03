@@ -161,11 +161,15 @@ async def test_stream_answer_question_tells_model_when_nothing_relevant_found(
     monkeypatch.setattr(rag, "BOOKS_DIR", tmp_path)
     blocks = [make_block(0, text="Src", translated_text="Nội dung không liên quan.")]
     _structure(blocks).save(book_dir / "structure.json")
-    await rag.build_index("book7")
 
-    # Force the query vector to be orthogonal to the indexed chunk so it's
-    # filtered out by the default min_similarity threshold.
+    # Force the indexed chunk and the query vector to be orthogonal so retrieval
+    # filters it out below min_similarity — must be set BEFORE build_index(), since
+    # that's what actually calls embed() for the indexed text; setting it after only
+    # affects later embed() calls (the query), leaving the indexed vector to fall
+    # through to FakeEmbed's hash-based default and making this test's pass/fail
+    # depend on hash(text) % 1000, i.e. PYTHONHASHSEED — a real, found-live flaky test.
     fake_embed.set_vector("Nội dung không liên quan.", [1.0, 0.0, 0.0])
+    await rag.build_index("book7")
     fake_embed.set_vector("câu hỏi lạc đề", [0.0, 1.0, 0.0])
 
     fake_ollama.queue("Không tìm thấy trong sách.")

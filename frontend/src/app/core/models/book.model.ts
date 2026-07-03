@@ -53,3 +53,9 @@ export interface ChatMessage {
   content: string;
   timestamp: string;
 }
+
+export interface RetranslatedBlock {
+  id: number;
+  translated_text: string | null;
+  translation_error: boolean;
+}

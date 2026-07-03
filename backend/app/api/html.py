@@ -26,7 +26,7 @@ def book_html(book_id: str) -> str:
     if not structure_path.exists():
         raise HTTPException(status_code=409, detail="Book has not been processed yet")
     structure = BookStructure.load(structure_path)
-    return render_body(structure, row["title"])
+    return render_body(structure, row["title"], interactive=True)
 
 
 @router.get("/{book_id}/download")

@@ -10,11 +10,12 @@ from pathlib import Path
 from app.config import BOOKS_DIR
 from app.db import get_connection, update_book, update_job
 from app.ingestion.structure import extract_book
-from app.models.book_structure import BookStructure
+from app.models.book_structure import Block, BookStructure
 from app.pipeline import rag
 from app.pipeline.chunking import Chunk, build_chunks
 from app.pipeline.summarize import split_into_chapters, summarize_chapter
 from app.pipeline.translate import detect_source_language, polish_chunk, rough_translate_chunk, tail_sentences
+from app.rendering.html_render import render_book
 
 logger = logging.getLogger(__name__)
 
@@ -168,12 +169,7 @@ async def run_translation_job(job_id: str, book_id: str, target_lang: str) -> No
         failed = rough_failed + polish_failed
 
         update_job(job_id, current_stage="assembling_html")
-        try:
-            from app.rendering.html_render import render_book
-
-            await asyncio.to_thread(render_book, book_id)
-        except ImportError:
-            logger.warning("html_render not implemented yet, skipping HTML assembly")
+        await asyncio.to_thread(render_book, book_id)
 
         if failed:
             update_job(job_id, status="done", current_stage="done",
@@ -294,6 +290,56 @@ async def run_index_job(job_id: str, book_id: str) -> None:
         update_job(job_id, status="error", error_message=str(exc)[:500])
     finally:
         RUNNING_JOBS.pop(job_id, None)
+
+
+RETRANSLATABLE_BLOCK_TYPES = ("heading", "paragraph", "verse")
+
+
+async def retranslate_block(book_id: str, block_id: int) -> Block:
+    """Re-translate a single block in isolation — no chunk-mates, no continuity
+    context — for the reader's per-block "Dịch lại" button, fixing one paragraph
+    that came out wrong without re-running the whole book. Fast enough (one rough
+    + up to a few polish calls) to run synchronously rather than as a tracked job."""
+    book_dir = BOOKS_DIR / book_id
+    structure_path = book_dir / "structure.json"
+    if not structure_path.exists():
+        raise FileNotFoundError("Book has not been translated yet")
+    structure = BookStructure.load(structure_path)
+    block = next((b for b in structure.blocks if b.id == block_id), None)
+    if block is None:
+        raise KeyError(f"Block {block_id} not found")
+    if block.type not in RETRANSLATABLE_BLOCK_TYPES:
+        raise ValueError(f"Block type '{block.type}' cannot be retranslated")
+
+    with get_connection() as conn:
+        row = conn.execute(
+            "SELECT source_lang, target_lang FROM books WHERE id = ?", (book_id,)
+        ).fetchone()
+    source_lang, target_lang = row["source_lang"], row["target_lang"]
+    glossary_path = book_dir / "glossary.json"
+    glossary = _load_glossary(glossary_path)
+
+    chunk = Chunk(index=0, blocks=[block])
+    try:
+        rough_parts, glossary_updates, _tail = await rough_translate_chunk(
+            chunk, source_lang, target_lang, glossary, ""
+        )
+        block.rough_text = rough_parts[0]
+        if glossary_updates:
+            glossary.update(glossary_updates)
+            _save_glossary(glossary_path, glossary)
+
+        polished_parts, _tail2 = await polish_chunk(chunk, source_lang, target_lang, glossary, "")
+        block.translated_text = polished_parts[0]
+        block.translation_error = False
+    except Exception:
+        block.translation_error = True
+        raise
+    finally:
+        structure.save(structure_path)
+
+    await asyncio.to_thread(render_book, book_id)
+    return block
 
 
 def start_job(job_id: str, book_id: str, target_lang: str) -> None:

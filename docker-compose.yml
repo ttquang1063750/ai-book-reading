@@ -1,0 +1,19 @@
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/data:/app/data
+    environment:
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - CORS_ORIGINS=http://localhost:4210
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # no-op on Docker Desktop, required on Linux
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "4210:80"
+    depends_on:
+      - backend

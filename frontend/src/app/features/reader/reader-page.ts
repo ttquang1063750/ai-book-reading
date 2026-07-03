@@ -1,4 +1,13 @@
-import { Component, OnInit, ViewEncapsulation, computed, inject, input, signal } from '@angular/core';
+import {
+  Component,
+  OnInit,
+  ViewEncapsulation,
+  computed,
+  effect,
+  inject,
+  input,
+  signal,
+} from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
 import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
@@ -44,6 +53,25 @@ export class ReaderPage implements OnInit {
   readonly fontScale = signal(this.readStoredFontScale());
   readonly canDecreaseFont = computed(() => this.fontScale() > FONT_SCALE_MIN + 0.001);
   readonly canIncreaseFont = computed(() => this.fontScale() < FONT_SCALE_MAX - 0.001);
+
+  readonly retranslateError = signal<string | null>(null);
+  /** Set right before a per-block "Dịch lại" triggers reload(), so the effect
+   * below knows which block to scroll back to once the fresh HTML fragment lands
+   * — otherwise the reload would silently jump the reader back to the top. */
+  private readonly pendingScrollToBlockId = signal<number | null>(null);
+
+  constructor() {
+    effect(() => {
+      const html = this.rawHtml();
+      const blockId = this.pendingScrollToBlockId();
+      if (html && blockId !== null) {
+        this.pendingScrollToBlockId.set(null);
+        requestAnimationFrame(() => {
+          document.getElementById(`block-${blockId}`)?.scrollIntoView({ block: 'center' });
+        });
+      }
+    });
+  }
 
   decreaseFont(): void {
     this.setFontScale(this.fontScale() - FONT_SCALE_STEP);
@@ -118,5 +146,29 @@ export class ReaderPage implements OnInit {
 
   reload(): void {
     this.refresh.update((n) => n + 1);
+  }
+
+  /** Book content arrives as raw injected HTML (see safeHtml above), so its
+   * "Dịch lại" buttons aren't real Angular-bound elements — a single delegated
+   * click listener on the container (see reader-page.html) is how we reach them. */
+  async onReaderClick(event: Event): Promise<void> {
+    const button = (event.target as HTMLElement).closest('.retranslate-btn') as HTMLButtonElement | null;
+    if (!button) return;
+    const blockId = Number(button.dataset['blockId']);
+    if (!Number.isFinite(blockId)) return;
+
+    this.retranslateError.set(null);
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = '…';
+    try {
+      await this.api.retranslateBlock(this.id(), blockId);
+      this.pendingScrollToBlockId.set(blockId);
+      this.reload();
+    } catch {
+      this.retranslateError.set('Không dịch lại được đoạn này — thử lại sau.');
+      button.disabled = false;
+      button.textContent = originalLabel;
+    }
   }
 }

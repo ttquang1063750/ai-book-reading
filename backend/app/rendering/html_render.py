@@ -28,18 +28,32 @@ def _original_html(block: Block) -> str:
     return block.html if block.html is not None else str(escape(block.text))
 
 
-def _translated_html(block: Block) -> str:
+RETRANSLATABLE_BLOCK_TYPES = ("heading", "paragraph", "verse")
+
+
+def _translated_html(block: Block, interactive: bool) -> str:
     if block.translation_error:
-        return _wrap(block, escape(block.text), cls="translation-error")
-    if block.translated_text is None:
+        html = _wrap(block, escape(block.text), cls="translation-error")
+    elif block.translated_text is None:
         # Not reached by the pipeline yet — show the original, visibly pending.
+        # Nothing to retranslate yet, so no button even when interactive.
         return _wrap(block, escape(block.text), cls="pending")
-    # LLM output is plain text; convert any preserved line breaks (verse) to <br>.
-    text_html = str(escape(block.translated_text)).replace("\n", "<br>")
-    return _wrap(block, text_html)
+    else:
+        # LLM output is plain text; convert any preserved line breaks (verse) to <br>.
+        text_html = str(escape(block.translated_text)).replace("\n", "<br>")
+        html = _wrap(block, text_html)
+    if interactive and block.type in RETRANSLATABLE_BLOCK_TYPES:
+        # Inert without JS — only the Angular reader (interactive=True) wires up a
+        # click handler for it. The standalone output.html never sets interactive,
+        # so it never gets a button that would do nothing there.
+        html += (
+            f'<button type="button" class="retranslate-btn" data-block-id="{block.id}" '
+            'title="Dịch lại đoạn này">↻</button>'
+        )
+    return html
 
 
-def _render_block(block: Block) -> str:
+def _render_block(block: Block, interactive: bool) -> str:
     # A stable anchor for each block, used by the reader's chapter navigation
     # (heading blocks in particular — see api/chapters.py) to scroll to a section.
     anchor = f' id="block-{block.id}"'
@@ -54,7 +68,7 @@ def _render_block(block: Block) -> str:
         return f'<div class="block block-{cls}"{anchor}>{content}</div>'
 
     original = _wrap(block, _original_html(block))
-    translated = _translated_html(block)
+    translated = _translated_html(block, interactive)
     return (
         f'<div class="block"{anchor}>'
         f'<div class="original" lang="und">{original}</div>'
@@ -63,14 +77,16 @@ def _render_block(block: Block) -> str:
     )
 
 
-def render_body(structure: BookStructure, title: str) -> str:
+def render_body(structure: BookStructure, title: str, interactive: bool = False) -> str:
     """Inner-HTML fragment: served to the Angular reader and embedded in the standalone file.
 
     The wrapping <article> gets a mode class (mode-both | mode-original | mode-translated)
-    set by the viewer; default is mode-both (side-by-side).
+    set by the viewer; default is mode-both (side-by-side). `interactive` adds the
+    per-block "Dịch lại" button — only for the Angular reader (see api/html.py),
+    never for the standalone file, which has no backend to call.
     """
     parts = ['<article class="book mode-both">', f'<h1 class="book-title">{escape(title)}</h1>']
-    parts += [_render_block(b) for b in structure.blocks]
+    parts += [_render_block(b, interactive) for b in structure.blocks]
     parts.append("</article>")
     return "\n".join(parts)
 

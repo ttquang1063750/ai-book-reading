@@ -7,8 +7,8 @@ from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from app.config import BOOKS_DIR, MAX_UPLOAD_BYTES
 from app.db import get_connection
-from app.models.schemas import BookOut
-from app.pipeline.job_runner import has_running_job_for_book
+from app.models.schemas import BlockOut, BookOut
+from app.pipeline.job_runner import get_book_lock, has_running_job_for_book, retranslate_block
 
 router = APIRouter(prefix="/api/books", tags=["books"])
 
@@ -98,3 +98,29 @@ def delete_book(book_id: str) -> None:
         conn.execute("DELETE FROM jobs WHERE book_id = ?", (book_id,))
         conn.execute("DELETE FROM books WHERE id = ?", (book_id,))
     shutil.rmtree(BOOKS_DIR / book_id, ignore_errors=True)
+
+
+@router.post("/{book_id}/blocks/{block_id}/retranslate", response_model=BlockOut)
+async def retranslate_block_endpoint(book_id: str, block_id: int) -> BlockOut:
+    with get_connection() as conn:
+        book = conn.execute("SELECT id, status FROM books WHERE id = ?", (book_id,)).fetchone()
+    if book is None:
+        raise HTTPException(status_code=404, detail="Book not found")
+    if book["status"] not in ("done", "error"):
+        raise HTTPException(status_code=409, detail="Book must finish translating first")
+
+    async with get_book_lock(book_id):
+        if has_running_job_for_book(book_id):
+            raise HTTPException(status_code=409, detail="A job is already running for this book")
+        try:
+            block = await retranslate_block(book_id, block_id)
+        except FileNotFoundError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    return BlockOut(
+        id=block.id, translated_text=block.translated_text, translation_error=block.translation_error
+    )

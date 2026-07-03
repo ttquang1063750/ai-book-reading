@@ -10,6 +10,7 @@ import {
   IndexStatus,
   Job,
   Lang,
+  RetranslatedBlock,
 } from './models/book.model';
 
 @Injectable({ providedIn: 'root' })
@@ -74,6 +75,15 @@ export class BooksApiService {
 
   getChapters(bookId: string): Promise<Chapter[]> {
     return firstValueFrom(this.http.get<Chapter[]>(`${this.base}/books/${bookId}/chapters`));
+  }
+
+  retranslateBlock(bookId: string, blockId: number): Promise<RetranslatedBlock> {
+    return firstValueFrom(
+      this.http.post<RetranslatedBlock>(
+        `${this.base}/books/${bookId}/blocks/${blockId}/retranslate`,
+        null
+      )
+    );
   }
 
   getSummaries(bookId: string): Promise<ChapterSummary[]> {

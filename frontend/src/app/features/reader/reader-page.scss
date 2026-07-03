@@ -194,6 +194,41 @@
 .reader.mode-original .translated { display: none; }
 .reader.mode-translated .original { display: none; }
 
+.reader .translated {
+  position: relative;
+}
+
+.reader .retranslate-btn {
+  position: absolute;
+  top: -0.1rem;
+  right: -0.1rem;
+  width: 1.6rem;
+  height: 1.6rem;
+  line-height: 1;
+  padding: 0;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 50%;
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.reader .block:hover .retranslate-btn {
+  opacity: 1;
+}
+
+.reader .retranslate-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-accent);
+}
+
+.reader .retranslate-btn:disabled {
+  opacity: 1;
+  cursor: default;
+}
+
 /* Images and code listings are not translated — shown once, full width. */
 .reader .block-media, .reader .block-code-block {
   margin: 1.25rem 0;

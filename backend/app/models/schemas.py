@@ -20,6 +20,12 @@ class ChapterSummaryOut(BaseModel):
     summary: str | None = None
 
 
+class BlockOut(BaseModel):
+    id: int
+    translated_text: str | None = None
+    translation_error: bool = False
+
+
 class IndexStatusOut(BaseModel):
     indexed: bool
     chunk_count: int

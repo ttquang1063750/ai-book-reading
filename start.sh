@@ -56,8 +56,8 @@ done
 # ---------- 3. Backend ----------
 [ -d "$ROOT/backend/.venv" ] || fail "Chưa có backend/.venv — chạy: cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -e ."
 
-if lsof -ti tcp:$BACKEND_PORT > /dev/null 2>&1; then
-  warn "Cổng $BACKEND_PORT đang bận — bỏ qua khởi động backend (đã chạy sẵn?)."
+if curl -s --max-time 2 "http://localhost:$BACKEND_PORT/api/health" > /dev/null 2>&1; then
+  warn "Backend đã phản hồi ở cổng $BACKEND_PORT — bỏ qua khởi động (đã chạy sẵn?)."
 else
   info "Khởi động backend (cổng $BACKEND_PORT)..."
   (cd "$ROOT/backend" && .venv/bin/uvicorn app.main:app --port $BACKEND_PORT) > /tmp/book-backend.log 2>&1 &
@@ -73,8 +73,8 @@ fi
 # ---------- 4. Frontend ----------
 [ -d "$ROOT/frontend/node_modules" ] || fail "Chưa có frontend/node_modules — chạy: cd frontend && npm install"
 
-if lsof -ti tcp:$FRONTEND_PORT > /dev/null 2>&1; then
-  warn "Cổng $FRONTEND_PORT đang bận — bỏ qua khởi động frontend (đã chạy sẵn?)."
+if curl -s --max-time 2 "http://localhost:$FRONTEND_PORT" > /dev/null 2>&1; then
+  warn "Frontend đã phản hồi ở cổng $FRONTEND_PORT — bỏ qua khởi động (đã chạy sẵn?)."
 else
   info "Khởi động frontend (cổng $FRONTEND_PORT)..."
   (cd "$ROOT/frontend" && npm start) > /tmp/book-frontend.log 2>&1 &
