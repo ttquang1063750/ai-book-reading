@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+import pymupdf
 from fastapi import APIRouter, Form, HTTPException, UploadFile
 
 from app.config import BOOKS_DIR, MAX_UPLOAD_BYTES
@@ -23,19 +24,19 @@ async def upload_book(
     target_lang: str = Form("Tiếng Việt"),
 ) -> BookOut:
     # source_lang is intentionally not accepted here — it's auto-detected from
-    # the PDF's own text right after extraction, when the translation job runs.
+    # the book's own text right after extraction, when the translation job runs.
     target_lang = target_lang.strip()
     if not target_lang or len(target_lang) > 50:
         raise HTTPException(status_code=422, detail="target_lang must be 1-50 characters")
     filename = file.filename or "book.pdf"
-    if not filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=422, detail="Only PDF files are accepted")
+    suffix = Path(filename).suffix.lower()
+    if not suffix:
+        raise HTTPException(status_code=422, detail="File must have an extension so its format can be recognized")
 
     book_id = uuid.uuid4().hex
     book_dir = BOOKS_DIR / book_id
     book_dir.mkdir(parents=True, exist_ok=True)
 
-    pdf_path = book_dir / "original.pdf"
     content = await file.read()
     if len(content) > MAX_UPLOAD_BYTES:
         book_dir.rmdir()
@@ -43,10 +44,20 @@ async def upload_book(
             status_code=413,
             detail=f"File too large — max {MAX_UPLOAD_BYTES // (1024 * 1024)}MB",
         )
-    if not content.startswith(b"%PDF"):
+    # No hardcoded format allowlist — let PyMuPDF itself be the source of truth for
+    # what's supported (PDF, EPUB, XPS, MOBI, FB2, CBZ, common image formats, ...).
+    try:
+        with pymupdf.open(stream=content, filetype=suffix.lstrip(".")) as doc:
+            if doc.page_count < 1:
+                raise ValueError("document has no pages")
+    except Exception as exc:
         book_dir.rmdir()
-        raise HTTPException(status_code=422, detail="File does not look like a PDF")
-    pdf_path.write_bytes(content)
+        raise HTTPException(
+            status_code=422, detail=f"Could not open this {suffix} file: {exc}"
+        ) from exc
+
+    original_path = book_dir / f"original{suffix}"
+    original_path.write_bytes(content)
 
     title = Path(filename).stem
     created_at = datetime.now(timezone.utc).isoformat()

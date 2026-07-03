@@ -132,3 +132,11 @@ def test_empty_lines_are_skipped(tmp_pdf):
 
     all_text = " ".join(b.text_joined for b in blocks)
     assert "Real content here." in all_text
+
+
+def test_epub_extraction_keeps_heading_font_size_larger_than_body(tmp_epub):
+    path = tmp_epub("<h1>Chapter One</h1><p>A normal paragraph of body text follows here.</p>")
+    blocks, _images, _pages = extract_raw_blocks(path)
+
+    by_text = {b.text_joined: b.max_size for b in blocks}
+    assert by_text["Chapter One"] > by_text["A normal paragraph of body text follows here."]

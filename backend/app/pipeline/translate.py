@@ -89,31 +89,59 @@ def _has_wrong_language(text: str, target_lang: str) -> bool:
 
 DEFAULT_SOURCE_LANG_LABEL = "Không xác định"
 
+# Vietnamese display name for every language langdetect's bundled profiles cover
+# (see backend/.venv/.../langdetect/profiles/ — 55 ISO 639-1-ish codes). Spellings
+# for the 11 curated target-language presets match TARGET_LANG_PRESETS in
+# frontend/library-page.ts exactly, so a book's detected source and a chosen
+# target render identically when they happen to be the same language.
+_ISO_TO_SOURCE_LANG_NAME = {
+    "af": "Tiếng Afrikaans", "ar": "Tiếng Ả Rập", "bg": "Tiếng Bulgaria",
+    "bn": "Tiếng Bengal", "ca": "Tiếng Catalan", "cs": "Tiếng Séc",
+    "cy": "Tiếng Wales", "da": "Tiếng Đan Mạch", "de": "Tiếng Đức",
+    "el": "Tiếng Hy Lạp", "en": "Tiếng Anh", "es": "Tiếng Tây Ban Nha",
+    "et": "Tiếng Estonia", "fa": "Tiếng Ba Tư", "fi": "Tiếng Phần Lan",
+    "fr": "Tiếng Pháp", "gu": "Tiếng Gujarat", "he": "Tiếng Do Thái",
+    "hi": "Tiếng Hindi", "hr": "Tiếng Croatia", "hu": "Tiếng Hungary",
+    "id": "Tiếng Indonesia", "it": "Tiếng Ý", "ja": "Tiếng Nhật",
+    "kn": "Tiếng Kannada", "ko": "Tiếng Hàn", "lt": "Tiếng Litva",
+    "lv": "Tiếng Latvia", "mk": "Tiếng Macedonia", "ml": "Tiếng Malayalam",
+    "mr": "Tiếng Marathi", "ne": "Tiếng Nepal", "nl": "Tiếng Hà Lan",
+    "no": "Tiếng Na Uy", "pa": "Tiếng Punjab", "pl": "Tiếng Ba Lan",
+    "pt": "Tiếng Bồ Đào Nha", "ro": "Tiếng Romania", "ru": "Tiếng Nga",
+    "sk": "Tiếng Slovak", "sl": "Tiếng Slovenia", "so": "Tiếng Somalia",
+    "sq": "Tiếng Albania", "sv": "Tiếng Thuỵ Điển", "sw": "Tiếng Swahili",
+    "ta": "Tiếng Tamil", "te": "Tiếng Telugu", "th": "Tiếng Thái",
+    "tl": "Tiếng Tagalog", "tr": "Tiếng Thổ Nhĩ Kỳ", "uk": "Tiếng Ukraina",
+    "ur": "Tiếng Urdu", "vi": "Tiếng Việt",
+    "zh-cn": "Tiếng Trung", "zh-tw": "Tiếng Trung",
+}
+
 
 async def detect_source_language(sample_text: str) -> str:
-    """Identify the source language from a short text sample, using the rough
-    model (already loaded for the rough pass right after this runs — no extra
-    model swap). Returns a Vietnamese language name, matching how target
-    languages are phrased in the UI (e.g. "Tiếng Anh", "Tiếng Nhật")."""
+    """Identify the source language from a text sample via langdetect — offline,
+    deterministic (DetectorFactory.seed above), no model call. Returns a
+    Vietnamese language name, matching how target languages are phrased in the
+    UI (e.g. "Tiếng Anh", "Tiếng Nhật").
+
+    Previously used an LLM call (asking ROUGH_MODEL to name the language), but
+    that was unreliable in a way sample-shape tweaks couldn't fix: live testing
+    across a dozen realistic book excerpts (250-450 clean chars each, no short
+    headings involved) got it right only 5/12 times — a small model's general
+    unreliability at meta-linguistic instruction-following, not a prompt or
+    sample-construction bug. langdetect, built specifically for this task,
+    scored 13/14 on the same kind of battery (including short single-line
+    headings) — the one miss was a single word ("Hello"), below
+    LANGDETECT_MIN_CHARS, which is exactly the case the length guard below
+    exists to catch by falling back instead of guessing.
+    """
     sample_text = sample_text.strip()
-    if not sample_text:
+    if len(sample_text) < LANGDETECT_MIN_CHARS:
         return DEFAULT_SOURCE_LANG_LABEL
-    prompt = (
-        "What language is the following text written in? Respond with ONLY the language "
-        'name in Vietnamese (e.g. "Tiếng Anh", "Tiếng Nhật", "Tiếng Đức"), nothing else — '
-        "no punctuation, no explanation.\n\n"
-        f"Text:\n{sample_text[:1000]}"
-    )
     try:
-        response = await ollama_client.chat(
-            ROUGH_MODEL, [{"role": "user", "content": prompt}], temperature=0.0
-        )
-        first_line = response.strip().splitlines()[0].strip()
-        detected = first_line.strip('"').strip("'").strip()
-        return detected or DEFAULT_SOURCE_LANG_LABEL
-    except (ollama_client.OllamaError, IndexError) as exc:
-        logger.warning("Source language detection failed, using placeholder: %s", exc)
+        code = detect(sample_text[:1000])
+    except LangDetectException:
         return DEFAULT_SOURCE_LANG_LABEL
+    return _ISO_TO_SOURCE_LANG_NAME.get(code, DEFAULT_SOURCE_LANG_LABEL)
 
 
 async def rough_translate(chunk: Chunk, source_lang: str, target_lang: str, prev_tail: str) -> str:

@@ -1,6 +1,23 @@
-# 📚 Dịch sách — Offline PDF Book Translator
+# 📚 Dịch sách — Offline Book Translator
 
-Ứng dụng local chạy **hoàn toàn offline**: upload sách PDF ở ngôn ngữ bất kỳ, dịch toàn bộ sang ngôn ngữ đích bạn chọn (mặc định tiếng Việt) bằng AI local qua Ollama, đọc kết quả song ngữ trên web.
+![tests](https://img.shields.io/badge/tests-83_passing-brightgreen)
+![backend](https://img.shields.io/badge/backend-Python_3.11-blue)
+![frontend](https://img.shields.io/badge/frontend-Angular_21-DD0031)
+![LLM](https://img.shields.io/badge/LLM-Ollama_local-8A2BE2)
+![privacy](https://img.shields.io/badge/privacy-100%25_offline-success)
+![platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+
+Đọc sách nước ngoài bằng ngôn ngữ bạn muốn, không cần gửi nội dung sách lên bất kỳ dịch vụ cloud nào. Upload một cuốn sách, ứng dụng tự trích xuất nội dung, dịch toàn bộ bằng AI chạy local qua [Ollama](https://ollama.com), rồi cho đọc song ngữ ngay trên trình duyệt — kèm tóm tắt theo chương và hỏi đáp về nội dung sách.
+
+## Tính năng
+
+- **Hỗ trợ nhiều định dạng** — PDF, EPUB, và về cơ bản bất kỳ định dạng nào PyMuPDF đọc được (không giới hạn danh sách cứng).
+- **Tự nhận diện ngôn ngữ nguồn**, chọn ngôn ngữ đích từ danh sách phổ biến hoặc tuỳ ý (mặc định Tiếng Việt).
+- **Dịch chất lượng cao** qua 2 giai đoạn: dịch thô rồi biên tập lại thành văn xuôi tự nhiên, giữ tên riêng nhất quán xuyên suốt cuốn sách.
+- **Đọc song ngữ** — bản gốc và bản dịch cạnh nhau hoặc riêng từng bản, giữ định dạng in đậm/nghiêng, code block, thơ, và hình ảnh gốc.
+- **Dịch lại từng đoạn** khi một chỗ nào đó dịch chưa ổn, không cần dịch lại cả cuốn.
+- **Tóm tắt theo chương** và **hỏi đáp (chat) về nội dung sách** dựa trên bản dịch, trả lời stream theo từng token.
+- Mỗi sách còn xuất ra một file `output.html` độc lập, mở thẳng bằng browser không cần chạy app.
 
 ## Kiến trúc
 
@@ -8,47 +25,31 @@
 Angular 21 SPA (localhost:4210) → FastAPI (localhost:8000) → Ollama (localhost:11434)
 ```
 
-- **Ngôn ngữ nguồn tự động nhận diện, ngôn ngữ đích chọn sẵn**: ngôn ngữ của file PDF gốc được tự động phát hiện ngay sau khi trích xuất, không cần nhập tay. Ngôn ngữ đích chọn từ danh sách phổ biến (mặc định Tiếng Việt) hoặc tuỳ chỉnh — không giới hạn cố định, miễn model hỗ trợ.
-- **Dịch hybrid 2 giai đoạn**: `translategemma` dịch thô toàn bộ sách trước → `qwen2.5:14b` biên tập lại thành văn xuôi tự nhiên bằng ngôn ngữ đích sau. Chạy theo giai đoạn (không đổi model mỗi đoạn) để máy chỉ cần giữ 1 model trong RAM tại một thời điểm. Tên riêng được trích và giữ nhất quán xuyên suốt cuốn sách trong lúc dịch (nội bộ, không có trang riêng để xem).
-- **Tóm tắt theo chương**: tạo tóm tắt theo ngôn ngữ đích cho từng chương (dựa trên bản dịch), xem tại trang **Tóm tắt** — tạo theo yêu cầu sau khi dịch xong, không tự động chạy kèm job dịch.
-- **Hỏi đáp về nội dung sách**: chat hỏi-đáp dựa trên bản dịch (RAG, retrieval cục bộ + `qwen2.5`), đánh index tự động sau khi dịch xong, câu trả lời stream theo từng token, hỗ trợ code block/công thức toán trong câu trả lời.
-- **Đọc song ngữ**: xem bản gốc + bản dịch cạnh nhau, hoặc từng bản riêng. Giữ được in đậm/nghiêng, code block (không bị dịch, tránh hỏng cú pháp), thơ/địa chỉ (giữ xuống dòng), và hình ảnh gốc trong PDF.
-- **Dịch lại từng đoạn**: mỗi đoạn văn ở trang đọc có nút ↻ (hiện khi rê chuột) để dịch lại riêng đoạn đó — hữu ích khi model dịch sai/lẫn ngôn ngữ ở một vài chỗ mà không cần dịch lại cả sách.
-- Mỗi sách còn có file `output.html` độc lập tại `backend/data/books/{id}/` — mở trực tiếp bằng browser không cần chạy app.
+Toàn bộ pipeline chạy local: PyMuPDF trích xuất cấu trúc sách (heading/đoạn văn/thơ/code/ảnh dựa trên cỡ chữ) → hai model Ollama dịch theo 2 giai đoạn (dịch thô, rồi biên tập) → kết quả render thành HTML để đọc, đồng thời index lại để phục vụ chat hỏi-đáp (RAG, cosine similarity thuần numpy, không cần vector DB). Chi tiết kỹ thuật và các quyết định thiết kế nằm ở [AGENTS.md](AGENTS.md).
 
 ## Yêu cầu
 
 - macOS (Apple Silicon khuyến nghị, ≥16GB RAM)
-- [Ollama](https://ollama.com) đã cài và chạy
+- [Ollama](https://ollama.com) đã cài
 - Python ≥3.11, Node ≥20, Angular CLI ≥21
 
-## Cài đặt lần đầu
+## Bắt đầu nhanh
 
 ```bash
-# 1. Models (~12GB tổng)
+# Cài đặt lần đầu
 ollama pull translategemma
 ollama pull qwen2.5:14b-instruct-q4_K_M
+cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -e . && cd ..
+cd frontend && npm install && cd ..
 
-# 2. Backend
-cd backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e .
-
-# 3. Frontend
-cd ../frontend
-npm install
+# Chạy — 1 lệnh, tự kiểm tra Ollama/model, khởi động backend + frontend, mở browser
+./start.sh
 ```
 
-## Chạy
+Mở http://localhost:4210 → upload sách → bấm **Dịch** → theo dõi tiến độ → **Đọc**. Sách dịch xong có thêm **Tóm tắt** và **Hỏi đáp**. API docs (Swagger): http://localhost:8000/docs
 
-Cách nhanh nhất — 1 lệnh, tự kiểm tra/khởi động Ollama, tự pull model còn thiếu, khởi động cả backend lẫn frontend, tự mở browser:
-
-```bash
-./start.sh   # Ctrl+C để dừng tất cả
-```
-
-Hoặc chạy tay từng phần (hữu ích khi cần xem log riêng của từng service):
+<details>
+<summary>Chạy thủ công từng service (không dùng <code>start.sh</code>)</summary>
 
 ```bash
 # Terminal 1 — backend
@@ -59,44 +60,55 @@ uvicorn app.main:app --port 8000
 cd frontend && npm start
 ```
 
-Mở http://localhost:4210 → upload PDF → bấm **Dịch** → theo dõi tiến độ → **Đọc**. Sách đã dịch xong có thêm nút **Tóm tắt** (tạo tóm tắt từng chương) và **Hỏi đáp** (chat về nội dung sách).
+</details>
 
-API docs (Swagger): http://localhost:8000/docs
+## Hướng dẫn sử dụng
+
+**1. Thêm sách** — ở trang Thư viện, chọn ngôn ngữ đích (mặc định Tiếng Việt, hoặc chọn "Khác…" để gõ tuỳ ý), rồi bấm **Thêm sách** và chọn file. Không cần chọn ngôn ngữ gốc — ứng dụng tự nhận diện sau khi trích xuất.
+
+**2. Dịch** — bấm **Dịch** trên sách vừa thêm để bắt đầu job dịch nền. Trang tiến độ hiển thị số phần đã dịch, ETA, và có thể **Hủy** giữa chừng hoặc **Xem trước phần đã dịch** trong lúc job vẫn chạy. Nếu job kết thúc với một số phần lỗi, dùng **Thử lại phần lỗi** thay vì dịch lại từ đầu.
+
+**3. Đọc** — trang Đọc có 3 chế độ xem (**Song ngữ**, **Bản gốc**, **Bản dịch**), nút chỉnh cỡ chữ (A−/A+), và **☰ Mục lục** để nhảy nhanh giữa các chương (nếu sách có heading). Rê chuột vào một đoạn đã dịch sẽ hiện nút ↻ để **dịch lại riêng đoạn đó** — dùng khi một chỗ nào đó dịch sai/lẫn ngôn ngữ mà không muốn dịch lại cả cuốn. Chế độ tối bật/tắt bằng nút 🌙/☀️ ở góc phải header, áp dụng cho toàn app.
+
+**4. Tóm tắt** — vào trang **Tóm tắt** của một sách đã dịch xong, bấm **Tạo tóm tắt** để sinh tóm tắt theo từng chương (chạy nền, có thể mất vài phút với sách dài). Có thể **Tạo lại tóm tắt** bất kỳ lúc nào.
+
+**5. Hỏi đáp** — vào trang **Hỏi đáp**, lần đầu vào sẽ tự động đánh index nội dung sách (chạy nền). Sau đó gõ câu hỏi và nhận câu trả lời stream dựa trên nội dung sách, không bịa nếu không tìm thấy thông tin liên quan. Có thể **Đánh lại index** (sau khi dịch lại nhiều đoạn) hoặc **Xoá hội thoại** để bắt đầu lại.
+
+**6. Tải về** — nút **Tải về** xuất file `output.html` độc lập của sách, mở thẳng bằng browser mà không cần chạy app (không có nút dịch lại từng đoạn vì không có backend để gọi).
 
 ## Chạy bằng Docker
 
-Đóng gói backend + frontend vào container; **Ollama vẫn chạy native trên máy host**, không đưa vào Docker — trên macOS, Docker Desktop chạy container trong 1 VM Linux không pass-through được Metal/GPU của Apple Silicon, nên Ollama trong container sẽ rơi về CPU-only và chậm đi rất nhiều.
+Đóng gói backend + frontend vào container; **Ollama vẫn chạy native trên máy host**, không đưa vào Docker — trên macOS, Docker Desktop chạy container trong 1 VM Linux không pass-through được Metal/GPU của Apple Silicon, nên Ollama trong container sẽ chậm đi nhiều.
 
 ```bash
-# 1. Ollama vẫn cài + chạy native như bình thường, đã pull đủ model
 ollama pull translategemma
 ollama pull qwen2.5:14b-instruct-q4_K_M
 ollama serve   # nếu chưa chạy sẵn
 
-# 2. Build + chạy backend/frontend trong container
 docker compose up --build   # thêm -d để chạy nền
 ```
 
-Mở http://localhost:4210 như bình thường. Frontend (nginx) phục vụ Angular đã build sẵn và tự proxy `/api/*` sang backend cùng origin (giống `proxy.conf.json` lúc dev) — trình duyệt không cần biết backend chạy ở container nào. Backend nối tới Ollama trên host qua `http://host.docker.internal:11434` (khai trong `docker-compose.yml`, override được qua biến môi trường `OLLAMA_BASE_URL`).
+Mở http://localhost:4210 như bình thường — frontend (nginx) tự proxy `/api/*` sang backend cùng origin, backend nối tới Ollama trên host qua `host.docker.internal`. Dữ liệu (`backend/data/`) được mount làm volume nên giữ nguyên giữa các lần chạy. Dừng bằng `docker compose down`.
 
-Dữ liệu (`backend/data/`) được mount làm volume nên vẫn giữ nguyên giữa các lần `docker compose up`/`down`, giống hệt khi chạy native.
+## Cấu hình cho máy yếu hơn
 
-Dừng: `docker compose down` (thêm `-v` chỉ khi muốn xoá luôn dữ liệu — bình thường không cần).
+Đổi `POLISH_MODEL` trong `backend/app/config.py` (nhớ `ollama pull` model mới trước):
 
-## Ghi chú
+| Cấu hình | Model | Kích thước |
+|---|---|---|
+| 8-16GB RAM | `qwen2.5:7b-instruct-q4_K_M` | ~4.7GB |
+| ≤8GB RAM / máy rất yếu | `qwen2.5:3b-instruct-q4_K_M` | ~2GB (văn phong kém tự nhiên hơn) |
 
-- Job dịch chạy nền và lưu tiến độ sau mỗi chunk — nếu tắt máy giữa chừng, bấm dịch lại sẽ tiếp tục từ chỗ dừng (chunk đã dịch được bỏ qua).
-- Tốc độ tham khảo trên M1/32GB: ~4-5 phút cho ~9 trang. Sách dài nên chạy qua đêm.
-- **Máy cấu hình thấp hơn**: đổi `POLISH_MODEL` trong `backend/app/config.py` (nhớ `ollama pull` model mới trước khi đổi):
+Dòng Qwen2.5 được chọn vì train đa ngôn ngữ rộng, cho văn phong tự nhiên hơn các model cùng cỡ khác. `ROUGH_MODEL` (`translategemma`, 3.3GB) đã đủ nhẹ, không cần đổi trừ khi máy dưới 8GB.
 
-  | Cấu hình | Model | Kích thước |
-  |---|---|---|
-  | 8-16GB RAM | `qwen2.5:7b-instruct-q4_K_M` | ~4.7GB |
-  | ≤8GB RAM / máy rất yếu | `qwen2.5:3b-instruct-q4_K_M` | ~2GB (văn phong kém tự nhiên hơn) |
+Tốc độ tham khảo trên M1/32GB: ~4-5 phút cho ~9 trang — sách dài nên để chạy qua đêm. Job dịch lưu tiến độ sau mỗi chunk nên tắt máy giữa chừng vẫn tiếp tục được từ chỗ dừng.
 
-  Chọn dòng Qwen2.5 vì được train đa ngôn ngữ rộng, cho tiếng Việt tự nhiên hơn các model cùng cỡ khác (Llama3.2, Gemma2). `ROUGH_MODEL` (`translategemma`, 3.3GB) đã đủ nhẹ, không cần đổi trừ khi máy dưới 8GB — lúc đó có thể bỏ hẳn bước polish, chỉ dùng rough pass để tiết kiệm tải thêm 1 model.
-- Dữ liệu nằm ở `backend/data/` (gitignored): SQLite (`app.db`) + mỗi sách một thư mục (`original.pdf`, `structure.json`, `glossary.json`, `output.html`). `glossary.json` chỉ dùng nội bộ để dịch nhất quán tên riêng, có thể sửa tay file này nếu muốn ép cách dịch một tên riêng, dù không có UI riêng cho việc đó.
+## Dữ liệu
+
+Toàn bộ dữ liệu nằm ở `backend/data/` (gitignored): SQLite (`app.db`) cho trạng thái sách/job, và mỗi sách một thư mục riêng (`original.*`, `structure.json`, `glossary.json`, `output.html`). Không có gì được gửi ra ngoài máy.
+
+`glossary.json` giữ các tên riêng đã dịch để đảm bảo nhất quán xuyên suốt cuốn sách — không có UI riêng, nhưng có thể sửa tay file này nếu muốn ép cách dịch một tên riêng cụ thể trước khi dịch lại.
 
 ## Tài liệu dự án
 
-- [AGENTS.md](AGENTS.md) — kiến trúc và quy ước cho AI agent làm việc trong repo
+- [AGENTS.md](AGENTS.md) — kiến trúc, quyết định thiết kế, và quy ước cho AI agent làm việc trong repo

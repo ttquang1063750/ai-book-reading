@@ -226,7 +226,8 @@ def build_structure(book_id: str, source_lang: str, pdf_path: Path) -> BookStruc
 
 
 def extract_book(book_id: str, source_lang: str, book_dir: Path) -> BookStructure:
-    """Extract structure from a book's original.pdf and persist structure.json."""
-    structure = build_structure(book_id, source_lang, book_dir / "original.pdf")
+    """Extract structure from a book's original file (PDF or EPUB) and persist structure.json."""
+    original_path = next(book_dir.glob("original.*"))
+    structure = build_structure(book_id, source_lang, original_path)
     structure.save(book_dir / "structure.json")
     return structure

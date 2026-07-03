@@ -90,11 +90,18 @@ class RawBlock:
         return len(self.text_joined.split())
 
 
+_REFLOWABLE_PAGE_WIDTH = 612  # US Letter, points — only affects reflowable formats (EPUB etc.)
+_REFLOWABLE_PAGE_HEIGHT = 792  # PyMuPDF ignores width/height for fixed-layout formats like PDF
+
+
 def extract_raw_blocks(pdf_path: Path) -> tuple[list[RawBlock], list[RawImage], int]:
     """Return ordered raw text blocks, raw images, and the page count."""
     blocks: list[RawBlock] = []
     images: list[RawImage] = []
-    with pymupdf.open(pdf_path) as doc:
+    # Without an explicit width/height, PyMuPDF paginates reflowable formats (EPUB)
+    # at a narrow 400x600pt default — short line-wraps then trip the verse-vs-prose
+    # heuristic in structure.py, which assumes normal book-page-width wrapping.
+    with pymupdf.open(pdf_path, width=_REFLOWABLE_PAGE_WIDTH, height=_REFLOWABLE_PAGE_HEIGHT) as doc:
         if doc.is_encrypted:
             raise EncryptedPdfError(
                 "Sách bị khoá mật khẩu, vui lòng gỡ khoá trước khi tải lên."

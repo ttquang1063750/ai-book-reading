@@ -24,8 +24,10 @@
       </label>
     }
     <label class="upload-button" [class.disabled]="store.uploading()">
-      {{ store.uploading() ? 'Đang tải lên…' : 'Thêm sách PDF' }}
-      <input type="file" accept="application/pdf" (change)="onFileSelected($event)" hidden />
+      {{ store.uploading() ? 'Đang tải lên…' : 'Thêm sách' }}
+      <!-- No accept filter: backend accepts whatever PyMuPDF can open (PDF, EPUB,
+           and more), not a fixed allowlist — the picker shouldn't hide options. -->
+      <input type="file" (change)="onFileSelected($event)" hidden />
     </label>
   </div>
 </header>
@@ -37,7 +39,7 @@
 @if (store.loading()) {
   <p class="hint">Đang tải danh sách…</p>
 } @else if (store.books().length === 0) {
-  <p class="hint">Chưa có sách nào. Hãy tải lên một file PDF ở ngôn ngữ bất kỳ.</p>
+  <p class="hint">Chưa có sách nào. Hãy tải lên một file PDF, EPUB (hoặc định dạng khác mà PyMuPDF hỗ trợ) ở ngôn ngữ bất kỳ.</p>
 } @else {
   <ul class="book-list">
     @for (book of store.books(); track book.id) {

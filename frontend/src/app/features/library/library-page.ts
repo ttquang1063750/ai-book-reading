@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 
@@ -58,8 +59,9 @@ export class LibraryPage implements OnInit {
     this.error.set(null);
     try {
       await this.store.upload(file, this.targetLang());
-    } catch {
-      this.error.set('Upload thất bại — kiểm tra file PDF và thử lại.');
+    } catch (err) {
+      const detail = err instanceof HttpErrorResponse ? err.error?.detail : null;
+      this.error.set(detail ? `Upload thất bại: ${detail}` : 'Upload thất bại — kiểm tra file và thử lại.');
     }
   }
 

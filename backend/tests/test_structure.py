@@ -170,3 +170,16 @@ def test_bold_paragraph_gets_html_with_strong_tag(tmp_pdf):
     paragraphs = [b for b in structure.blocks if b.type == "paragraph"]
     assert len(paragraphs) == 1
     assert "<strong>" in paragraphs[0].html
+
+
+def test_epub_heading_and_paragraph_classified_same_as_pdf(tmp_epub):
+    path = tmp_epub(
+        "<h1>Chapter One</h1>"
+        "<p>A normal paragraph of body text follows the heading here, long enough to read as prose.</p>"
+    )
+    structure = build_structure("b1", "en", path)
+
+    headings = [b for b in structure.blocks if b.type == "heading"]
+    paragraphs = [b for b in structure.blocks if b.type == "paragraph"]
+    assert [h.text for h in headings] == ["Chapter One"]
+    assert len(paragraphs) == 1

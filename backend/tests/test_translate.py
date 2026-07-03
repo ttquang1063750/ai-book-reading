@@ -43,17 +43,24 @@ def test_strip_markdown_artifacts_leaves_plain_text_untouched():
     assert strip_markdown_artifacts(text) == text
 
 
-async def test_detect_source_language_returns_model_response(fake_ollama):
-    fake_ollama.queue("Tiếng Anh")
-    result = await detect_source_language("The quick brown fox jumps over the lazy dog.")
+async def test_detect_source_language_identifies_english(fake_ollama):
+    result = await detect_source_language("The quick brown fox jumps over the lazy dog near the fence.")
     assert result == "Tiếng Anh"
-    assert fake_ollama.calls[0]["model"] == ROUGH_MODEL
+    assert fake_ollama.calls == []  # langdetect-based now — no model call at all
 
 
-async def test_detect_source_language_strips_quotes_and_extra_lines(fake_ollama):
-    fake_ollama.queue('"Tiếng Nhật"\nsome trailing commentary the model wasn\'t asked for')
-    result = await detect_source_language("これは日本語のテキストです。")
+async def test_detect_source_language_identifies_japanese(fake_ollama):
+    result = await detect_source_language("古い灯台は崖の端に立っており、何十年もの潮風でその白いペンキが剥がれていた。")
     assert result == "Tiếng Nhật"
+
+
+async def test_detect_source_language_identifies_short_heading_line(fake_ollama):
+    # Regression test: an LLM-based detector (translategemma) got this kind of
+    # short, heading-like sample wrong more often than not — see the docstring
+    # on detect_source_language for the live-testing numbers that motivated
+    # switching to langdetect.
+    result = await detect_source_language("The Lighthouse\nA Quiet Morning")
+    assert result == "Tiếng Anh"
 
 
 async def test_detect_source_language_empty_sample_returns_placeholder(fake_ollama):
@@ -62,12 +69,17 @@ async def test_detect_source_language_empty_sample_returns_placeholder(fake_olla
     assert fake_ollama.calls == []  # short-circuits, never calls Ollama for nothing
 
 
-async def test_detect_source_language_swallows_ollama_error(monkeypatch):
-    async def _boom(*a, **kw):
-        raise ollama_client.OllamaError("model unavailable")
+async def test_detect_source_language_too_short_returns_placeholder(fake_ollama):
+    # Below LANGDETECT_MIN_CHARS — not enough signal to guess reliably, so this
+    # falls back instead of risking a confident-but-wrong single-word guess.
+    result = await detect_source_language("Hello")
+    assert result == DEFAULT_SOURCE_LANG_LABEL
 
-    monkeypatch.setattr(ollama_client, "chat", _boom)
-    result = await detect_source_language("Some text.")
+
+async def test_detect_source_language_undetectable_text_returns_placeholder(fake_ollama):
+    # No linguistic features at all (langdetect raises LangDetectException) —
+    # falls back instead of propagating.
+    result = await detect_source_language("1234567890 !@#$%^&*() 1234567890 !@#$%^&*()")
     assert result == DEFAULT_SOURCE_LANG_LABEL
 
 

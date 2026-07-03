@@ -1,5 +1,7 @@
 """Shared test fixtures/helpers: a fake Ollama chat client and a Block factory."""
 
+import zipfile
+
 import pytest
 
 from app.models.book_structure import Block
@@ -87,3 +89,50 @@ def fake_embed(monkeypatch):
     fake = FakeEmbed()
     monkeypatch.setattr(ollama_client, "embed", fake.embed)
     return fake
+
+
+_EPUB_CONTAINER_XML = """<?xml version="1.0"?>
+<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
+  <rootfiles>
+    <rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/>
+  </rootfiles>
+</container>"""
+
+_EPUB_CONTENT_OPF = """<?xml version="1.0" encoding="UTF-8"?>
+<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="BookId" version="2.0">
+  <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <dc:title>Test Book</dc:title>
+    <dc:identifier id="BookId">urn:uuid:test</dc:identifier>
+  </metadata>
+  <manifest>
+    <item id="chap1" href="chap1.xhtml" media-type="application/xhtml+xml"/>
+  </manifest>
+  <spine>
+    <itemref idref="chap1"/>
+  </spine>
+</package>"""
+
+
+@pytest.fixture
+def tmp_epub(tmp_path):
+    """Build a minimal single-chapter EPUB with the given XHTML body, return its path.
+
+    PyMuPDF opens EPUB natively (it renders reflowable content into fixed pages,
+    same font-size-per-span metadata as a PDF), so ingestion code needs no
+    EPUB-specific branch — this fixture only exists to prove that end to end.
+    """
+
+    def _save(body_html: str) -> str:
+        path = tmp_path / "test.epub"
+        chapter = (
+            "<?xml version='1.0' encoding='UTF-8'?>"
+            "<html xmlns='http://www.w3.org/1999/xhtml'><body>" + body_html + "</body></html>"
+        )
+        with zipfile.ZipFile(path, "w") as z:
+            z.writestr("mimetype", "application/epub+zip", zipfile.ZIP_STORED)
+            z.writestr("META-INF/container.xml", _EPUB_CONTAINER_XML)
+            z.writestr("OEBPS/content.opf", _EPUB_CONTENT_OPF)
+            z.writestr("OEBPS/chap1.xhtml", chapter)
+        return str(path)
+
+    return _save
