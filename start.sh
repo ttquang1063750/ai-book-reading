@@ -44,7 +44,7 @@ fi
 
 # ---------- 2. Kiểm tra models ----------
 MODELS=$(curl -s "$OLLAMA_URL/api/tags")
-for model in "translategemma" "qwen2.5:14b-instruct-q4_K_M"; do
+for model in "translategemma" "qwen2.5:14b-instruct-q4_K_M" "bge-m3"; do
   if echo "$MODELS" | grep -q "$model"; then
     info "Model $model: OK"
   else

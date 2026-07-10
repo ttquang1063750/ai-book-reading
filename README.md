@@ -39,6 +39,7 @@ Toàn bộ pipeline chạy local: PyMuPDF trích xuất cấu trúc sách (headi
 # Cài đặt lần đầu
 ollama pull translategemma
 ollama pull qwen2.5:14b-instruct-q4_K_M
+ollama pull bge-m3   # embedding model cho tính năng Hỏi đáp (RAG)
 cd backend && python3 -m venv .venv && source .venv/bin/activate && pip install -e . && cd ..
 cd frontend && npm install && cd ..
 
@@ -83,6 +84,7 @@ cd frontend && npm start
 ```bash
 ollama pull translategemma
 ollama pull qwen2.5:14b-instruct-q4_K_M
+ollama pull bge-m3   # embedding model cho tính năng Hỏi đáp (RAG)
 ollama serve   # nếu chưa chạy sẵn
 
 docker compose up --build   # thêm -d để chạy nền
